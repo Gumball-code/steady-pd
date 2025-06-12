@@ -74,7 +74,7 @@
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            transition: background-color 0.3s, border-color 0.3s, transform 0.3s ease-in-out;
+            transition: all 0.3s ease-in-out;
             z-index: 1002;
         }
 
@@ -85,6 +85,8 @@
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 32px;
+            /* Ensure the header doesn't shrink when collapsing */
+            min-height: 29px; 
         }
 
         #collapse-btn {
@@ -116,6 +118,7 @@
             cursor: none;
             transition: background-color 0.2s, color 0.2s;
             overflow: hidden;
+            white-space: nowrap;
         }
 
         .nav-link:hover {
@@ -769,6 +772,47 @@
             color: var(--text-secondary);
             margin-bottom: 8px;
         }
+        
+        #voice-visualizer-canvas {
+            width: 100%;
+            height: 150px;
+            background-color: var(--bg-highlight);
+            border-radius: 12px;
+            margin-top: 16px;
+        }
+
+        /* === START OF NEW/FIXED CSS FOR COLLAPSED SIDEBAR === */
+        .logo-collapsed {
+            display: none;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* This is the class that drives the collapse animation */
+        .sidebar-collapsed .sidebar {
+            width: 88px;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .sidebar-collapsed .nav-link .link-text {
+            opacity: 0;
+            width: 0;
+        }
+        
+        .sidebar-collapsed #collapse-btn {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-collapsed .logo-full {
+            display: none;
+        }
+
+        .sidebar-collapsed .logo-collapsed {
+            display: block;
+        }
+        /* === END OF NEW/FIXED CSS === */
     </style>
 </head>
 
@@ -783,7 +827,12 @@
         <div id="app-overlay"></div>
         <div class="sidebar" id="app-sidebar">
             <div class="sidebar-header">
-                <span class="link-text">SteadyPD</span>
+                <!-- === START OF MODIFIED HTML FOR LOGO SWAP === -->
+                <div>
+                    <span class="logo-full link-text">SteadyPD</span>
+                    <span class="logo-collapsed">S|PD</span>
+                </div>
+                <!-- === END OF MODIFIED HTML === -->
                 <button id="collapse-btn">«</button>
             </div>
             <nav class="sidebar-nav">
@@ -924,17 +973,17 @@
                                 <div class="result" id="walk-result" style="display:none;"></div>
                             </div>
                             <div id="speech-test-wrapper" class="test-wrapper">
-                                <h1>Speech Analysis (Sim)</h1>
-                                <p>This simulates speech analysis. You would be asked to say "Aaaah" for 10 seconds into
-                                    the microphone.</p>
+                                <h1>Speech Analysis</h1>
+                                <p>This test analyzes your vocal steadiness. Press start, grant microphone access, and say "Aaaah" for 10 seconds.</p>
                                 <div class="simulation-display" id="voice-display">
                                     <div class="icon">🎤</div>
-                                    <div class="instruction">Press start and say "Aaaah" for 10 seconds.</div>
+                                    <div class="instruction">Press 'Start Test' to begin.</div>
                                 </div>
+                                <canvas id="voice-visualizer-canvas" style="display: none;"></canvas>
                                 <div class="progress-bar" id="voice-progress-bar" style="display:none;">
                                     <div class="progress-bar-inner"></div>
-                                </div><button id="start-voice-btn"><span class="btn-text">Start Test</span><span
-                                        class="loader"></span></button>
+                                </div>
+                                <button id="start-voice-btn"><span class="btn-text">Start Test</span><span class="loader"></span></button>
                                 <div class="result" id="voice-result" style="display:none;"></div>
                             </div>
                             <div id="reaction-test-wrapper" class="test-wrapper">
@@ -1102,6 +1151,15 @@
             let testResultsToday = {}; let activeListPage = 'physical';
             let today = new Date(); let currentMonth = today.getMonth(); let currentYear = today.getFullYear(); let selectedDay = today.getDate();
             let userData = {}; let tappingChartInstance; let userDrawnPoints = [];
+            // --- State variables for audio test, scoped to be reset easily ---
+            let voiceTestState = {
+                audioContext: null,
+                analyser: null,
+                microphone: null,
+                animationFrameId: null,
+                timeoutId: null,
+                allFrequencies: []
+            };
 
             const audioClick = document.getElementById('audio-click');
             const audioSuccess = document.getElementById('audio-success');
@@ -1110,7 +1168,7 @@
 
             // --- NAVIGATION & UI ---
             function showPage(pageId) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); document.querySelectorAll('.page').forEach(page => page.classList.remove('active')); const navEl = document.getElementById(`nav-${pageId}`); if (navEl) navEl.classList.add('active'); document.getElementById(`page-${pageId}`).classList.add('active'); if (pageId !== 'test-view') activeListPage = pageId; if (pageId === 'journal') renderCalendar(); if (pageId === 'reports') runDiagnostics(); closeMenu(); }
-            function goBack() { showPage(activeListPage); }
+            function goBack() { showPage(activeListPage); if (voiceTestState.audioContext) { stopVoiceTest(document.getElementById('start-voice-btn'), { skipResult: true }); } }
             function showTestView(testName) { document.querySelectorAll('.test-wrapper').forEach(w => w.style.display = 'none'); document.getElementById(`${testName}-test-wrapper`).style.display = 'block'; showPage('test-view'); if (testName === 'spiral') setupSpiralCanvas(); if (testName === 'memory') createMemoryBoard(); }
             async function showLoading(button, duration = 1000) { button.classList.add('loading'); button.disabled = true; await new Promise(res => setTimeout(res, duration)); button.classList.remove('loading'); button.disabled = false; }
             function updateActivityStatus(activityId) { const key = `${currentYear}-${currentMonth}-${today.getDate()}`; if (!userData[key]) userData[key] = {}; if (!userData[key].activities) userData[key].activities = []; if (!userData[key].activities.includes(activityId)) userData[key].activities.push(activityId); localStorage.setItem('userData', JSON.stringify(userData)); }
@@ -1126,99 +1184,141 @@
             async function runTappingTest(hand, button) { playSound('click'); button.disabled = true; const otherButton = hand === 'Left' ? document.getElementById('start-right-btn') : document.getElementById('start-left-btn'); otherButton.disabled = true; let tapCount = 0, timeLeft = 20; const area = document.getElementById('tapping-area'); area.style.display = 'flex'; area.innerHTML = `<div style="font-size:1.2em; color:var(--text-secondary);">Time: ${timeLeft}s</div><div style="font-size:2.5em; font-weight:600;">0</div>`; const countTap = () => { tapCount++; area.children[1].textContent = tapCount; }; area.addEventListener('click', countTap); const countdown = setInterval(() => { timeLeft--; area.children[0].textContent = `Time: ${timeLeft}s`; }, 1000); await new Promise(res => setTimeout(res, 20000)); clearInterval(countdown); area.removeEventListener('click', countTap); area.style.display = 'none'; await showLoading(button, 500); const resultEl = document.getElementById('tapping-result'); resultEl.style.display = 'block'; resultEl.innerHTML += `<strong>${hand} Hand:</strong> ${tapCount} taps.<br>`; testResultsToday[hand === 'Left' ? 'tappingLeft' : 'tappingRight'] = tapCount; if (testResultsToday.tappingLeft !== undefined && testResultsToday.tappingRight !== undefined) { updateActivityStatus('tapping'); playSound('success'); } otherButton.disabled = false; }
             function setupSpiralCanvas() { const canvas = document.getElementById('spiral-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); const dpr = window.devicePixelRatio || 1; const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); const centerX = rect.width / 2; const centerY = rect.height / 2; let isDrawing = false, lastX, lastY; userDrawnPoints = []; const isDark = document.body.classList.contains('dark-mode'); ctx.strokeStyle = isDark ? '#444' : '#E0E0E0'; ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 720; i++) { const angle = 0.1 * i; const x = centerX + (1 + angle) * Math.cos(angle); const y = centerY + (1 + angle) * Math.sin(angle); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke(); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = isDark ? '#FFFFFF' : 'var(--text-primary)'; function getPos(e) { const clientX = e.clientX || e.touches[0].clientX; const clientY = e.clientY || e.touches[0].clientY; return { x: clientX - rect.left, y: clientY - rect.top }; } function start(e) { isDrawing = true; const pos = getPos(e);[lastX, lastY] = [pos.x, pos.y]; ctx.beginPath(); ctx.moveTo(lastX, lastY); userDrawnPoints = [pos]; } function draw(e) { if (!isDrawing) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke();[lastX, lastY] = [pos.x, pos.y]; userDrawnPoints.push(pos); } canvas.onmousedown = start; canvas.ontouchstart = start; canvas.onmousemove = draw; canvas.ontouchmove = draw; canvas.onmouseup = () => isDrawing = false; canvas.onmouseleave = () => isDrawing = false; canvas.ontouchend = () => isDrawing = false; }
             async function finishSpiral(button) { playSound('click'); await showLoading(button); const centerX = document.getElementById('spiral-canvas').getBoundingClientRect().width / 2; const centerY = document.getElementById('spiral-canvas').getBoundingClientRect().height / 2; if (userDrawnPoints.length < 10) { testResultsToday.spiralVariance = 999; document.getElementById('spiral-result').textContent = `Spiral Variance Score: N/A (Drawing too short)`; } else { const distances = userDrawnPoints.map(p => Math.sqrt((p.x - centerX) ** 2 + (p.y - centerY) ** 2)); const meanDistance = distances.reduce((a, b) => a + b) / distances.length; const variance = distances.reduce((acc, d) => acc + (d - meanDistance) ** 2, 0) / distances.length; const stdDev = Math.sqrt(variance); testResultsToday.spiralVariance = Math.round(stdDev); document.getElementById('spiral-result').textContent = `Spiral Variance Score: ${Math.round(stdDev)}`; } document.getElementById('spiral-result').style.display = 'block'; updateActivityStatus('spiral'); playSound('success'); }
+            function handleSensorData(event) { const acceleration = event.accelerationIncludingGravity; const x = acceleration.x; const y = acceleration.y; const z = acceleration.z; const display = document.getElementById('walk-display'); if (display) { display.innerHTML = ` <div class="icon">🚶‍♂️</div> <div class="instruction" style="font-size: 0.8em; text-align: left; width: 100%; padding: 0 20px;"> X: ${x.toFixed(2)}<br> Y: ${y.toFixed(2)}<br> Z: ${z.toFixed(2)} </div> `; } }
+            async function runWalkTest(button) { playSound('click'); if (typeof DeviceMotionEvent.requestPermission === 'function') { try { const permissionState = await DeviceMotionEvent.requestPermission(); if (permissionState === 'granted') { window.addEventListener('devicemotion', handleSensorData); } else { alert('Permission to access motion sensors was denied.'); return; } } catch (error) { console.error(error); alert('Could not get sensor permission. Please try again.'); return; } } else { window.addEventListener('devicemotion', handleSensorData); } button.disabled = true; button.querySelector('.btn-text').textContent = "Stop Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => stopWalkTest(newButton)); newButton.disabled = false; }
+            async function stopWalkTest(button) { playSound('click'); window.removeEventListener('devicemotion', handleSensorData); await showLoading(button, 1500); const score = Math.round(Math.random() * 30 + 65); document.getElementById('walk-result').style.display = 'block'; document.getElementById('walk-result').textContent = `Gait & Balance Score: ${score}/100`; testResultsToday.walkScore = score; updateActivityStatus('gait'); playSound('success'); button.querySelector('.btn-text').textContent = "Start Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => runWalkTest(newButton)); document.getElementById('walk-display').innerHTML = ` <div class="icon">👟</div> <div class="instruction">Test complete! Press start to run again.</div> `; }
             
             // =========================================================================
-            // === START OF MODIFIED GAIT/SENSOR CODE FOR WEB BROWSER (iPHONE/ANDROID) ===
+            // === START OF REVISED SPEECH/AUDIO TEST CODE =============================
             // =========================================================================
-            
-            // This global function will be our event handler for sensor data.
-            function handleSensorData(event) {
-                const acceleration = event.accelerationIncludingGravity;
-                const x = acceleration.x;
-                const y = acceleration.y;
-                const z = acceleration.z;
 
-                const display = document.getElementById('walk-display');
-                if (display) {
-                    display.innerHTML = `
-                        <div class="icon">🚶‍♂️</div>
-                        <div class="instruction" style="font-size: 0.8em; text-align: left; width: 100%; padding: 0 20px;">
-                            X: ${x.toFixed(2)}<br>
-                            Y: ${y.toFixed(2)}<br>
-                            Z: ${z.toFixed(2)}
-                        </div>
-                    `;
-                }
-            }
-
-            // This function is called when the "Start Test" button is clicked.
-            async function runWalkTest(button) {
+            async function startVoiceTest(button) {
                 playSound('click');
+                button.disabled = true;
 
-                // For iPhone (iOS 13+), we must ask for permission to access sensors.
-                if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    try {
-                        const permissionState = await DeviceMotionEvent.requestPermission();
-                        if (permissionState === 'granted') {
-                            window.addEventListener('devicemotion', handleSensorData);
-                        } else {
-                            alert('Permission to access motion sensors was denied.');
-                            return;
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        alert('Could not get sensor permission. Please try again.');
-                        return;
-                    }
-                } else {
-                    // For Android or other browsers, permission is not needed or handled differently.
-                    window.addEventListener('devicemotion', handleSensorData);
+                // Reset state from any previous runs
+                voiceTestState = { audioContext: null, analyser: null, microphone: null, animationFrameId: null, timeoutId: null, allFrequencies: [] };
+
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                } catch (err) {
+                    console.error("Error accessing microphone:", err);
+                    alert("Could not access the microphone. Please check your browser permissions.");
+                    button.disabled = false; // Re-enable button on failure
+                    return; // Exit the function
                 }
 
-                // Update the button to become a "Stop" button.
-                button.disabled = true; // Briefly disable to prevent double clicks
-                button.querySelector('.btn-text').textContent = "Stop Test";
+                // --- If permission is granted, proceed ---
+                voiceTestState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                voiceTestState.analyser = voiceTestState.audioContext.createAnalyser();
+                voiceTestState.microphone = voiceTestState.audioContext.createMediaStreamSource(stream);
+                voiceTestState.microphone.connect(voiceTestState.analyser);
+                
+                voiceTestState.analyser.fftSize = 2048;
+                const bufferLength = voiceTestState.analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const visualizerCanvas = document.getElementById('voice-visualizer-canvas');
+                visualizerCanvas.style.display = 'block';
+                const canvasCtx = visualizerCanvas.getContext('2d');
+                document.getElementById('voice-display').style.display = 'none';
+                const pBar = document.getElementById('voice-progress-bar');
+                const pInner = pBar.querySelector('.progress-bar-inner');
+                pBar.style.display = 'block';
 
+                function drawVisualizer() {
+                    voiceTestState.animationFrameId = requestAnimationFrame(drawVisualizer);
+                    voiceTestState.analyser.getByteFrequencyData(dataArray);
+
+                    canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-highlight').trim();
+                    canvasCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+                    
+                    const barWidth = (visualizerCanvas.width / bufferLength) * 2.5;
+                    let barHeight, x = 0, dominantFrequency = 0, maxAmplitude = -1;
+                    
+                    for (let i = 0; i < bufferLength; i++) {
+                        barHeight = dataArray[i];
+                        if(barHeight > maxAmplitude) {
+                            maxAmplitude = barHeight;
+                            dominantFrequency = i * voiceTestState.audioContext.sampleRate / voiceTestState.analyser.fftSize;
+                        }
+                        
+                        canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim();
+                        canvasCtx.fillRect(x, visualizerCanvas.height - barHeight / 2, barWidth, barHeight / 2);
+                        x += barWidth + 1;
+                    }
+                    if(maxAmplitude > 10) { // Only record if there's significant sound
+                        voiceTestState.allFrequencies.push(dominantFrequency);
+                    }
+                }
+                drawVisualizer();
+
+                pInner.style.transition = 'none';
+                pInner.style.width = '0%';
+                setTimeout(() => {
+                    pInner.style.transition = 'width 10s linear';
+                    pInner.style.width = '100%';
+                }, 100);
+
+                // Automatically stop the test after 10 seconds
+                voiceTestState.timeoutId = setTimeout(() => stopVoiceTest(button), 10000);
+
+                // Change button to be a "Stop" button
+                button.querySelector('.btn-text').textContent = "Stop Test";
                 const newButton = button.cloneNode(true);
                 button.parentNode.replaceChild(newButton, button);
-                newButton.addEventListener('click', () => stopWalkTest(newButton));
+                newButton.addEventListener('click', () => stopVoiceTest(newButton));
                 newButton.disabled = false;
             }
 
-            // This function is called when the "Stop Test" button is clicked.
-            async function stopWalkTest(button) {
-                playSound('click');
+            async function stopVoiceTest(button, options = {}) {
+                if (!voiceTestState.audioContext) return; // Already stopped or never started
 
-                // IMPORTANT: Remove the event listener to stop receiving data and save battery.
-                window.removeEventListener('devicemotion', handleSensorData);
+                // Cleanup audio resources
+                clearTimeout(voiceTestState.timeoutId);
+                cancelAnimationFrame(voiceTestState.animationFrameId);
+                if (voiceTestState.microphone && voiceTestState.microphone.mediaStream) {
+                    voiceTestState.microphone.mediaStream.getTracks().forEach(track => track.stop());
+                }
+                if (voiceTestState.audioContext.state !== 'closed') {
+                    voiceTestState.audioContext.close();
+                }
 
-                await showLoading(button, 1500); // Simulate "analysis" time.
+                // If we are just leaving the page, skip the results part
+                if (options.skipResult) {
+                    voiceTestState = {}; // Reset state fully
+                    return;
+                }
 
-                // Your existing scoring and result display logic.
-                const score = Math.round(Math.random() * 30 + 65);
-                document.getElementById('walk-result').style.display = 'block';
-                document.getElementById('walk-result').textContent = `Gait & Balance Score: ${score}/100`;
-                testResultsToday.walkScore = score;
-                updateActivityStatus('gait');
+                await showLoading(button, 1500);
+                
+                let score = 0;
+                if(voiceTestState.allFrequencies.length > 10){
+                    const mean = voiceTestState.allFrequencies.reduce((a, b) => a + b) / voiceTestState.allFrequencies.length;
+                    const stdDev = Math.sqrt(voiceTestState.allFrequencies.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / voiceTestState.allFrequencies.length);
+                    score = Math.max(0, Math.min(100, 100 - (stdDev / 2)));
+                }
+                
+                document.getElementById('voice-result').style.display = 'block';
+                document.getElementById('voice-result').textContent = `Vocal Steadiness Score: ${Math.round(score)}/100`;
+                testResultsToday.voiceScore = Math.round(score);
+                updateActivityStatus('speech');
                 playSound('success');
 
-                // Reset the button back to its original "Start" state.
+                // Reset button to its original "Start" state
                 button.querySelector('.btn-text').textContent = "Start Test";
                 const newButton = button.cloneNode(true);
                 button.parentNode.replaceChild(newButton, button);
-                newButton.addEventListener('click', () => runWalkTest(newButton));
+                newButton.addEventListener('click', () => startVoiceTest(newButton));
 
-                document.getElementById('walk-display').innerHTML = `
-                    <div class="icon">👟</div>
-                    <div class="instruction">Test complete! Press start to run again.</div>
-                `;
+                voiceTestState = {}; // Clear state for next run
             }
 
-            // =======================================================================
-            // === END OF MODIFIED GAIT/SENSOR CODE ==================================
-            // =======================================================================
+            // =========================================================================
+            // === END OF REVISED SPEECH/AUDIO TEST CODE ===============================
+            // =========================================================================
 
-            async function runVoiceTest(button) { playSound('click'); button.disabled = true; const display = document.getElementById('voice-display'); const pBar = document.getElementById('voice-progress-bar'); const pInner = pBar.querySelector('.progress-bar-inner'); pBar.style.display = 'block'; display.innerHTML = `<div class="icon">🗣️</div><div class="instruction">Say "Aaaah"</div>`; pInner.style.transition = 'none'; pInner.style.width = '0%'; setTimeout(() => { pInner.style.transition = `width 10s linear`; pInner.style.width = '100%'; }, 100); await new Promise(res => setTimeout(res, 10000)); await showLoading(button, 1500); const score = Math.round(Math.random() * 40 + 55); document.getElementById('voice-result').style.display = 'block'; document.getElementById('voice-result').textContent = `Vocal Steadiness Score: ${score}/100`; testResultsToday.voiceScore = score; updateActivityStatus('speech'); button.disabled = false; playSound('success'); }
             async function runReactionTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; const area = document.getElementById('reaction-area'); let times = [], round = 0; const startRound = () => { if (round >= 3) { const avg = Math.round(times.reduce((a, b) => a + b, 0) / 3); document.getElementById('reaction-result').textContent = `Average Reaction: ${avg} ms`; document.getElementById('reaction-result').style.display = 'block'; testResultsToday.reactionTime = avg; updateActivityStatus('reaction'); button.style.display = 'inline-block'; playSound('success'); return; } round++; area.textContent = 'Get Ready...'; area.className = 'test-display-area waiting'; let startTime; const handleTap = () => { playSound('click'); const rt = new Date().getTime() - startTime; times.push(rt); area.removeEventListener('click', handleTap); area.className = 'test-display-area'; setTimeout(startRound, 1000); }; setTimeout(() => { area.textContent = 'TAP NOW!'; area.className = 'test-display-area go'; startTime = new Date().getTime(); area.addEventListener('click', handleTap); }, Math.random() * 2000 + 1000); }; startRound(); }
             async function runFocusTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; let timeOnTarget = 0; let isMouseOver = false; const target = document.getElementById('focus-target'); const timeDisplay = document.getElementById('focus-time'); target.addEventListener('mouseenter', () => isMouseOver = true); target.addEventListener('mouseleave', () => isMouseOver = false); const focusInterval = setInterval(() => { if (isMouseOver) { timeOnTarget += 100; timeDisplay.textContent = (timeOnTarget / 1000).toFixed(1); } }, 100); setTimeout(() => { clearInterval(focusInterval); document.getElementById('focus-result').textContent = `Time on Target: ${(timeOnTarget / 1000).toFixed(2)}s`; document.getElementById('focus-result').style.display = 'block'; testResultsToday.focusScore = timeOnTarget; updateActivityStatus('focus'); button.style.display = 'inline-block'; playSound('success'); }, 15000); }
             async function runStroopTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; document.getElementById('cognitive-game-area').style.display = 'flex'; let score = 0, rounds = 0; const colors = { 'Red': '#ff3b30', 'Green': '#34c759', 'Blue': '#007aff', 'Orange': '#ff9500' }, names = Object.keys(colors); function nextRound() { if (rounds >= 10) { document.getElementById('cognitive-game-area').style.display = 'none'; document.getElementById('stroop-result').textContent = `Score: ${score}/10`; document.getElementById('stroop-result').style.display = 'block'; testResultsToday.stroopScore = score; updateActivityStatus('stroop'); button.style.display = 'inline-block'; playSound('success'); return; } rounds++; let word = names[Math.floor(Math.random() * names.length)], color = names[Math.floor(Math.random() * names.length)]; while (word === color) color = names[Math.floor(Math.random() * names.length)]; document.getElementById('cognitive-word').textContent = word; document.getElementById('cognitive-word').style.color = colors[color]; const btns = document.getElementById('cognitive-buttons'); btns.innerHTML = ''; names.sort(() => .5 - Math.random()).forEach(n => { const b = document.createElement('button'); b.textContent = n; b.style.backgroundColor = colors[n]; b.onclick = () => { playSound('click'); if (n === color) score++; setTimeout(nextRound, 100) }; btns.appendChild(b) }) } nextRound(); }
@@ -1275,8 +1375,8 @@
                 document.getElementById('start-left-btn').addEventListener('click', e => runTappingTest('Left', e.currentTarget));
                 document.getElementById('start-right-btn').addEventListener('click', e => runTappingTest('Right', e.currentTarget));
                 document.getElementById('finish-spiral-btn').addEventListener('click', e => finishSpiral(e.currentTarget));
-                document.getElementById('start-walk-btn').addEventListener('click', e => runWalkTest(e.currentTarget)); // This now calls the correct web-based function
-                document.getElementById('start-voice-btn').addEventListener('click', e => runVoiceTest(e.currentTarget));
+                document.getElementById('start-walk-btn').addEventListener('click', e => runWalkTest(e.currentTarget));
+                document.getElementById('start-voice-btn').addEventListener('click', e => startVoiceTest(e.currentTarget));
                 document.getElementById('start-reaction-btn').addEventListener('click', e => runReactionTest(e.currentTarget));
                 document.getElementById('start-focus-btn').addEventListener('click', e => runFocusTest(e.currentTarget));
                 document.getElementById('start-stroop-btn').addEventListener('click', e => runStroopTest(e.currentTarget));
