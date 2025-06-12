@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SteadyPD - Fully Functional Prototype</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-blue: #2B63D9;
+            --text-primary: #1D2939;
+            --text-secondary: #667085;
+            --bg-main: #FFFFFF;
+            --bg-sidebar: #F8F9FC;
+            --bg-highlight: #F2F4F7;
+            --border-color: #EAECF0;
+            --peach-light: #FFFAF5;
+            --peach-dark: #D98E5E;
+            --green-color: #12B76A;
+            --yellow-color: #F79009;
+            --red-color: #F04438;
+            --green-bg: #ECFDF3;
+            --yellow-bg: #FFFAEB;
+            --red-bg: #FEF3F2;
+            --sidebar-width: 260px;
+            --sidebar-width-collapsed: 88px;
+        }
+
+        .dark-mode {
+            --primary-blue: #5887F2;
+            --text-primary: #F9FAFB;
+            --text-secondary: #98A2B3;
+            --bg-main: #101828;
+            --bg-sidebar: #1D2939;
+            --bg-highlight: #344054;
+            --border-color: #344054;
+            --peach-light: #3D3130;
+            --peach-dark: #F2994A;
+            --green-bg: #062A17;
+            --yellow-bg: #382B03;
+            --red-bg: #3E0F0C;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            margin: 0;
+            transition: background-color 0.3s, color 0.3s;
+            cursor: none;
+        }
+
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* --- Sidebar & Overlay --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: width 0.3s ease-in-out, background-color 0.3s, border-color 0.3s;
+            z-index: 1002;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 32px;
+        }
+
+        #collapse-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: none;
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            transition: transform 0.3s;
+        }
+
+        .sidebar-nav {
+            flex-grow: 1;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 4px;
+            cursor: none;
+            transition: background-color 0.2s, color 0.2s;
+            overflow: hidden;
+        }
+
+        .nav-link:hover {
+            background-color: var(--bg-highlight);
+        }
+
+        .nav-link.active {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+
+        .nav-link .icon {
+            font-size: 20px;
+            margin-right: 12px;
+            width: 24px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .nav-link .link-text {
+            white-space: nowrap;
+            opacity: 1;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        #app-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #app-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: var(--bg-main);
+            transition: background-color 0.3s;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-main);
+            z-index: 100;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        #menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: var(--text-secondary);
+            cursor: none;
+            padding: 0 16px 0 0;
+        }
+
+        #welcome-greeting {
+            font-size: 20px;
+            font-weight: 600;
+            text-align: left;
+            margin: 0;
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            font-size: 24px;
+            color: var(--text-secondary);
+        }
+
+        .profile-img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #FFD0B3;
+        }
+
+        /* --- Responsive & Collapsed Logic --- */
+        .sidebar-collapsed .sidebar {
+            width: var(--sidebar-width-collapsed);
+        }
+
+        .sidebar-collapsed .sidebar .link-text,
+        .sidebar-collapsed .sidebar .sidebar-header span {
+            opacity: 0;
+            width: 0;
+        }
+
+        .sidebar-collapsed .sidebar .nav-link {
+            justify-content: center;
+        }
+
+        .sidebar-collapsed .sidebar .nav-link .icon {
+            margin-right: 0;
+        }
+
+        .sidebar-collapsed #collapse-btn {
+            transform: rotate(180deg);
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed;
+                height: 100%;
+                transform: translateX(-100%);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+                box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+            }
+
+            .sidebar-collapsed .sidebar {
+                margin-left: 0;
+                transform: translateX(-100%);
+            }
+
+            #collapse-btn {
+                display: none;
+            }
+
+            #menu-toggle {
+                display: block;
+            }
+
+            .main-header {
+                padding: 16px 24px;
+            }
+
+            .page.active {
+                padding: 24px;
+            }
+        }
+
+        /* Other styles are unchanged */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            padding: 48px;
+            animation: fadeIn 0.4s;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-header h1 {
+            font-size: 30px;
+            margin: 0;
+            text-align: left;
+        }
+
+        .page-header p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin: 4px 0 0 0;
+            text-align: left;
+        }
+
+        button {
+            font-family: inherit;
+            position: relative;
+            display: inline-block;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            color: white;
+            background-color: var(--primary-blue);
+            border: none;
+            border-radius: 8px;
+            cursor: none;
+            transition: background-color 0.2s;
+        }
+
+        .result,
+        .toast {
+            margin-top: 15px;
+            font-size: 16px;
+            padding: 12px;
+            background-color: var(--bg-highlight);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            animation: fadeIn 0.5s;
+        }
+
+        .toast.show {
+            background-color: var(--green-color);
+            color: white;
+            border-color: var(--green-color);
+        }
+
+        .loader {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #fff;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+        }
+
+        button.loading .loader {
+            opacity: 1;
+        }
+
+        button.loading .btn-text {
+            opacity: 0;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        .test-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-main);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            cursor: none;
+            transition: box-shadow 0.2s, transform 0.2s, border-color 0.3s;
+        }
+
+        .test-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .test-card-content h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .test-card-content p {
+            margin: 4px 0 0 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .test-card-illustration {
+            width: 140px;
+            height: 80px;
+            background-color: var(--peach-light);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            color: var(--peach-dark);
+            transition: background-color 0.3s;
+        }
+
+        .test-wrapper {
+            display: none;
+        }
+
+        .test-view-container h1 {
+            text-align: left;
+            font-size: 36px;
+        }
+
+        .test-view-container p {
+            text-align: left;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        .test-display-area {
+            width: 100%;
+            min-height: 250px;
+            background-color: var(--bg-highlight);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: none;
+            user-select: none;
+            margin: 24px 0;
+        }
+
+        .tapping-area {
+            flex-direction: column;
+        }
+
+        #reaction-area.waiting {
+            background-color: #e5e5ea;
+        }
+
+        #reaction-area.go {
+            background-color: var(--green-color);
+            color: white;
+        }
+
+        #spiralCanvas {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 100%;
+            aspect-ratio: 550 / 300;
+            cursor: crosshair;
+            background-color: var(--bg-highlight);
+        }
+
+        .progress-bar {
+            width: 80%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .progress-bar-inner {
+            width: 0%;
+            height: 100%;
+            background-color: var(--primary-blue);
+            transition: width 0.5s ease-in-out;
+        }
+
+        .simulation-display {
+            min-height: 150px;
+            text-align: center;
+            padding: 20px;
+            background-color: var(--bg-highlight);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .simulation-display .icon {
+            font-size: 4em;
+        }
+
+        .simulation-display .instruction {
+            font-size: 1.2em;
+            font-weight: 500;
+            margin: 10px 0;
+        }
+
+        #cognitive-word {
+            font-size: 4em;
+            font-weight: bold;
+            text-align: center;
+            margin: 24px 0;
+        }
+
+        #cognitive-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        #memory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            perspective: 1000px;
+        }
+
+        .card {
+            height: 70px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: none;
+        }
+
+        .card .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            border-radius: 8px;
+        }
+
+        .card .card-front {
+            background-color: var(--bg-highlight);
+        }
+
+        .card .card-back {
+            background-color: #5ac8fa;
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched .card-back {
+            background-color: var(--green-color);
+        }
+
+        .custom-slider-container {
+            width: 100%;
+            padding: 10px 0;
+        }
+
+        .slider-track {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-highlight);
+            border-radius: 4px;
+            position: relative;
+            cursor: none;
+        }
+
+        .slider-fill {
+            position: absolute;
+            height: 100%;
+            background-color: var(--primary-blue);
+            border-radius: 4px;
+        }
+
+        .slider-handle {
+            position: absolute;
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary-blue);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .med-pills {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pill-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background-color: var(--bg-highlight);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .pill-btn.active {
+            background-color: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+            font-size: 14px;
+        }
+
+        .report-table th,
+        .report-table td {
+            text-align: left;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .report-table th {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .severity-Good {
+            background-color: var(--green-bg);
+        }
+
+        .severity-Moderate {
+            background-color: var(--yellow-bg);
+        }
+
+        .severity-Concerning {
+            background-color: var(--red-bg);
+        }
+
+        #cursor-dot {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-blue);
+            border-radius: 50%;
+            top: -20px;
+            left: -20px;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, opacity 0.2s, transform 0.2s;
+            z-index: 9999;
+        }
+
+        #cursor-dot.active {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0.3;
+        }
+
+        .settings-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .settings-group label {
+            font-weight: 500;
+        }
+
+        #username-input,
+        #journal-notes-input {
+            font-family: inherit;
+            font-size: 16px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+
+        #username-input {
+            margin-right: 10px;
+        }
+
+        #journal-notes-input {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 80px;
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: none;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 28px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--primary-blue);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(22px);
+        }
+
+        #calendar-container {
+            margin-bottom: 40px;
+        }
+
+        #calendar-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        #calendar-header h2 {
+            margin: 0 24px;
+        }
+
+        #calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
+
+        .day-name {
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding-bottom: 10px;
+        }
+
+        .day {
+            padding: 10px 0;
+            border-radius: 50%;
+            cursor: none;
+            position: relative;
+        }
+
+        .day.other-month {
+            color: #ccc;
+        }
+
+        .day.today {
+            font-weight: 600;
+        }
+
+        .day.active {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+
+        .day .dot {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            background-color: var(--primary-blue);
+            border-radius: 50%;
+        }
+
+        .journal-detail-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .journal-detail-header h3 {
+            text-align: left;
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .journal-section h4 {
+            text-align: left;
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        #completed-activities-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #completed-activities-list li {
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="cursor-dot"></div>
+    <audio id="audio-click" src="https://assets.mixkit.co/sfx/preview/mixkit-modern-technology-select-3127.mp3"></audio>
+    <audio id="audio-success"
+        src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3"></audio>
+
+    <div class="app-layout" id="app-container">
+        <div id="app-overlay"></div>
+        <div class="sidebar" id="app-sidebar">
+            <div class="sidebar-header">
+                <span class="link-text">SteadyPD</span>
+                <button id="collapse-btn">«</button>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-link" id="nav-physical"><span class="icon">💪</span> <span class="link-text">Physical
+                        Tests</span></a>
+                <a class="nav-link" id="nav-cognitive"><span class="icon">🧠</span> <span class="link-text">Cognitive &
+                        Motor</span></a>
+                <a class="nav-link" id="nav-journal"><span class="icon">🗓️</span> <span class="link-text">Daily
+                        Journal</span></a>
+                <a class="nav-link" id="nav-reports"><span class="icon">📊</span> <span class="link-text">Summary
+                        Report</span></a>
+            </nav>
+            <div class="sidebar-footer"><a class="nav-link" id="nav-settings"><span class="icon">⚙️</span> <span
+                        class="link-text">Settings</span></a></div>
+        </div>
+        <div class="main-content">
+            <header class="main-header">
+                <div style="display:flex; align-items:center;">
+                    <button id="menu-toggle">☰</button>
+                    <h1 id="welcome-greeting"></h1>
+                </div>
+                <div class="header-icons"><span>🔔</span>
+                    <div class="profile-img"></div>
+                </div>
+            </header>
+
+            <main id="page-physical" class="page">
+                <div class="page-header">
+                    <h1>Physical Tests</h1>
+                    <p>Track your physical symptoms and progress over time with these tests.</p>
+                </div>
+                <div id="physical-tests-list">
+                    <div class="test-card" data-testname="tapping">
+                        <div class="test-card-content">
+                            <h3>Finger Tapping Test</h3>
+                            <p>Measure your finger dexterity and speed.</p>
+                        </div>
+                        <div class="test-card-illustration">👆</div>
+                    </div>
+                    <div class="test-card" data-testname="spiral">
+                        <div class="test-card-content">
+                            <h3>Spiral Drawing</h3>
+                            <p>Assess tremor and fine motor control.</p>
+                        </div>
+                        <div class="test-card-illustration">🌀</div>
+                    </div>
+                    <div class="test-card" data-testname="gait">
+                        <div class="test-card-content">
+                            <h3>Gait Analysis</h3>
+                            <p>Analyze your walking pattern and balance.</p>
+                        </div>
+                        <div class="test-card-illustration">🚶‍♂️</div>
+                    </div>
+                    <div class="test-card" data-testname="speech">
+                        <div class="test-card-content">
+                            <h3>Speech Analysis</h3>
+                            <p>Analyze volume, clarity, and speed.</p>
+                        </div>
+                        <div class="test-card-illustration">🗣️</div>
+                    </div>
+                </div>
+            </main>
+
+            <main id="page-cognitive" class="page">
+                <div class="page-header">
+                    <h1>Cognitive & Fine Motor Tests</h1>
+                    <p>These tests evaluate reaction, attention, and cognitive processing.</p>
+                </div>
+                <div id="cognitive-tests-list">
+                    <div class="test-card" data-testname="reaction">
+                        <div class="test-card-content">
+                            <h3>Reaction Time</h3>
+                            <p>Tap the screen when a shape appears.</p>
+                        </div>
+                        <div class="test-card-illustration">⚡</div>
+                    </div>
+                    <div class="test-card" data-testname="focus">
+                        <div class="test-card-content">
+                            <h3>Sustained Attention</h3>
+                            <p>Keep your cursor on the target for as long as possible.</p>
+                        </div>
+                        <div class="test-card-illustration">🎯</div>
+                    </div>
+                    <div class="test-card" data-testname="stroop">
+                        <div class="test-card-content">
+                            <h3>Cognitive Flexibility</h3>
+                            <p>Test your attention and reaction to conflicting information.</p>
+                        </div>
+                        <div class="test-card-illustration">🎨</div>
+                    </div>
+                    <div class="test-card" data-testname="memory">
+                        <div class="test-card-content">
+                            <h3>Short-Term Memory</h3>
+                            <p>Classic flip-and-match game to evaluate memory span.</p>
+                        </div>
+                        <div class="test-card-illustration">🤔</div>
+                    </div>
+                </div>
+            </main>
+
+            <main id="page-test-view" class="page">
+                <div class="test-view-container">
+                    <a id="back-button"
+                        style="cursor:none; color:var(--text-secondary); margin-bottom: 24px; display:inline-block;">
+                        < Back to Test List</a>
+                            <div id="tapping-test-wrapper" class="test-wrapper">
+                                <h1>Finger Tapping</h1>
+                                <p>This test measures dexterity and speed. You will be asked to tap for 20 seconds,
+                                    first with one hand, then the other.</p><button id="start-left-btn"><span
+                                        class="btn-text">Start Left Hand</span></button><button id="start-right-btn"
+                                    style="background-color:var(--text-secondary);"><span class="btn-text">Start Right
+                                        Hand</span></button>
+                                <div class="test-display-area tapping-area" id="tapping-area" style="display:none;">
+                                </div>
+                                <div class="result" id="tapping-result" style="display:none;"></div>
+                            </div>
+                            <div id="spiral-test-wrapper" class="test-wrapper">
+                                <h1>Spiral Drawing</h1>
+                                <p>Trace the faint spiral on the canvas as smoothly as you can. The analysis measures
+                                    the variance of your drawing from a perfect spiral.</p><canvas
+                                    id="spiral-canvas"></canvas><button id="finish-spiral-btn"
+                                    style="margin-top:16px;"><span class="btn-text">Finish & Analyze</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="spiral-result" style="display:none;"></div>
+                            </div>
+                            <div id="gait-test-wrapper" class="test-wrapper">
+                                <h1>Gait Analysis (Sim)</h1>
+                                <p>This simulates a gait analysis test. In a real app, you would place the phone in your
+                                    pocket and walk a short distance.</p>
+                                <div class="simulation-display" id="walk-display">
+                                    <div class="icon">👟</div>
+                                    <div class="instruction">Place phone in pocket & press start.</div>
+                                </div>
+                                <div class="progress-bar" id="walk-progress-bar" style="display:none;">
+                                    <div class="progress-bar-inner"></div>
+                                </div><button id="start-walk-btn"><span class="btn-text">Start Test</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="walk-result" style="display:none;"></div>
+                            </div>
+                            <div id="speech-test-wrapper" class="test-wrapper">
+                                <h1>Speech Analysis (Sim)</h1>
+                                <p>This simulates speech analysis. You would be asked to say "Aaaah" for 10 seconds into
+                                    the microphone.</p>
+                                <div class="simulation-display" id="voice-display">
+                                    <div class="icon">🎤</div>
+                                    <div class="instruction">Press start and say "Aaaah" for 10 seconds.</div>
+                                </div>
+                                <div class="progress-bar" id="voice-progress-bar" style="display:none;">
+                                    <div class="progress-bar-inner"></div>
+                                </div><button id="start-voice-btn"><span class="btn-text">Start Test</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="voice-result" style="display:none;"></div>
+                            </div>
+                            <div id="reaction-test-wrapper" class="test-wrapper">
+                                <h1>Reaction Time</h1>
+                                <p>Tap the box as soon as it turns from grey to green. Your average time over three
+                                    rounds will be recorded.</p>
+                                <div id="reaction-area" class="test-display-area">Click 'Start' to begin</div><button
+                                    id="start-reaction-btn"><span class="btn-text">Start Test</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="reaction-result" style="display:none;"></div>
+                            </div>
+                            <div id="focus-test-wrapper" class="test-wrapper">
+                                <h1>Sustained Attention</h1>
+                                <p>Keep your cursor or finger on the target for 15 seconds. The timer only counts down
+                                    when you are on target.</p>
+                                <div class="test-display-area">
+                                    <div id="focus-target">X</div>
+                                </div>
+                                <h4>Time on Target: <span id="focus-time">0.0</span>s</h4><button
+                                    id="start-focus-btn"><span class="btn-text">Start Test</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="focus-result" style="display:none;"></div>
+                            </div>
+                            <div id="stroop-test-wrapper" class="test-wrapper">
+                                <h1>Cognitive Flexibility</h1>
+                                <p>Click the button that matches the INK COLOR of the word, not the word itself. The
+                                    test consists of 10 rounds.</p>
+                                <div class="test-display-area" id="cognitive-game-area"
+                                    style="display:none; flex-direction:column;">
+                                    <div id="cognitive-word"></div>
+                                    <div id="cognitive-buttons"></div>
+                                </div><button id="start-stroop-btn"><span class="btn-text">Start Game</span><span
+                                        class="loader"></span></button>
+                                <div class="result" id="stroop-result" style="display:none;"></div>
+                            </div>
+                            <div id="memory-test-wrapper" class="test-wrapper">
+                                <h1>Short-Term Memory</h1>
+                                <p>Find all the matching pairs of symbols by flipping the cards.</p>
+                                <div id="memory-grid"></div><button id="reset-memory-btn" style="margin-top:16px;"><span
+                                        class="btn-text">Reset Game</span></button>
+                                <div class="result" id="memory-result" style="display:none;"></div>
+                            </div>
+                </div>
+            </main>
+
+            <main id="page-journal" class="page">
+                <div class="page-header">
+                    <h1>Daily Journal</h1>
+                    <p>Track your symptoms and activities to monitor your progress.</p>
+                </div>
+                <div id="calendar-container">
+                    <div id="calendar-header"><button id="prev-month" style="width:auto; padding: 5px 10px;">
+                            << /button>
+                                <h2 id="month-year"></h2><button id="next-month"
+                                    style="width:auto; padding: 5px 10px;">></button></div>
+                    <div id="calendar-grid"></div>
+                </div>
+                <div id="daily-detail-view">
+                    <div class="journal-detail-header">
+                        <h3 id="detail-date-title"></h3>
+                    </div>
+                    <div class="journal-section">
+                        <h4>How are you feeling today?</h4><textarea id="journal-notes-input"
+                            placeholder="Add notes about your day, mood, or specific events..."></textarea>
+                    </div>
+                    <div class="journal-section">
+                        <h4>Symptom Diary</h4>
+                        <div class="slider-group"><label>Stiffness</label>
+                            <div class="custom-slider-container" data-symptom="stiffness">
+                                <div class="slider-track">
+                                    <div class="slider-fill"></div>
+                                    <div class="slider-handle"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slider-group"><label>Tremor</label>
+                            <div class="custom-slider-container" data-symptom="tremor">
+                                <div class="slider-track">
+                                    <div class="slider-fill"></div>
+                                    <div class="slider-handle"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slider-group"><label>Fatigue</label>
+                            <div class="custom-slider-container" data-symptom="fatigue">
+                                <div class="slider-track">
+                                    <div class="slider-fill"></div>
+                                    <div class="slider-handle"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="journal-section">
+                        <h4>Medication Log</h4>
+                        <div class="med-group"><span class="med-name">Levodopa</span>
+                            <div class="med-pills" data-med="levodopa"><button class="pill-btn">AM</button><button
+                                    class="pill-btn">PM</button></div>
+                        </div>
+                        <div class="med-group"><span class="med-name">Carbidopa</span>
+                            <div class="med-pills" data-med="carbidopa"><button class="pill-btn">AM</button><button
+                                    class="pill-btn">PM</button></div>
+                        </div>
+                    </div>
+                    <div class="journal-section">
+                        <h4>Completed Activities</h4>
+                        <ul id="completed-activities-list"></ul>
+                    </div><button style="margin-top: 32px;" id="save-journal-btn"><span class="btn-text">Save Journal
+                            Entry</span><span class="loader"></span></button>
+                    <div id="toast-message" class="toast" style="display:none;"></div>
+                </div>
+            </main>
+
+            <main id="page-reports" class="page">
+                <div class="page-header">
+                    <h1>Summary Report</h1>
+                    <p id="report-date-subtitle"></p>
+                </div>
+                <div style="margin-top: 32px;">
+                    <h3>Detailed Results</h3>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Test</th>
+                                <th>Result</th>
+                                <th>Severity</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body">
+                            <tr>
+                                <td colspan="3" style="text-align:center; color: var(--text-secondary);">No test data
+                                    for today. Complete tests to see results.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="analysis-section" id="analysis-section" style="display:none;">
+                    <h3 id="analysis-title">Analysis & Next Steps</h3>
+                    <p id="analysis-text"></p>
+                </div>
+                <div class="chart-container" style="margin-top: 32px;">
+                    <h3>Tapping Speed (vs. Last 4 Weeks)</h3><canvas id="tappingChart"></canvas>
+                </div>
+            </main>
+
+            <main id="page-settings" class="page">
+                <div class="page-header">
+                    <h1>Settings</h1>
+                    <p>Customize your application experience.</p>
+                </div>
+                <div class="settings-group"><label for="username-input">Your Name</label>
+                    <div><input type="text" id="username-input" placeholder="Enter your name"><button
+                            id="save-name-btn">Save</button></div>
+                </div>
+                <div class="settings-group"><label>Theme</label><label class="theme-switch"><input type="checkbox"
+                            id="theme-toggle"><span class="slider"></span></label></div>
+                <div class="settings-group"><label>Manage Data</label><button id="clear-data-btn"
+                        style="background-color: var(--red-color);">Clear All Data</button></div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- GLOBAL STATE & MOCK DB ---
+            let testResultsToday = {}; let activeListPage = 'physical';
+            let today = new Date(); let currentMonth = today.getMonth(); let currentYear = today.getFullYear(); let selectedDay = today.getDate();
+            let userData = {}; let tappingChartInstance; let userDrawnPoints = [];
+
+            const audioClick = document.getElementById('audio-click');
+            const audioSuccess = document.getElementById('audio-success');
+            const cursorDot = document.getElementById('cursor-dot');
+            const playSound = (sound) => { try { if (sound === 'click') { audioClick.currentTime = 0; audioClick.play(); } if (sound === 'success') { audioSuccess.currentTime = 0; audioSuccess.play(); } } catch (e) { } };
+
+            // --- NAVIGATION & UI ---
+            function showPage(pageId) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); document.querySelectorAll('.page').forEach(page => page.classList.remove('active')); const navEl = document.getElementById(`nav-${pageId}`); if (navEl) navEl.classList.add('active'); document.getElementById(`page-${pageId}`).classList.add('active'); if (pageId !== 'test-view') activeListPage = pageId; if (pageId === 'journal') renderCalendar(); if (pageId === 'reports') runDiagnostics(); closeMenu(); }
+            function goBack() { showPage(activeListPage); }
+            function showTestView(testName) { document.querySelectorAll('.test-wrapper').forEach(w => w.style.display = 'none'); document.getElementById(`${testName}-test-wrapper`).style.display = 'block'; showPage('test-view'); if (testName === 'spiral') setupSpiralCanvas(); if (testName === 'memory') createMemoryBoard(); }
+            async function showLoading(button, duration = 1000) { button.classList.add('loading'); button.disabled = true; await new Promise(res => setTimeout(res, duration)); button.classList.remove('loading'); button.disabled = false; }
+            function updateActivityStatus(activityId) { const key = `${currentYear}-${currentMonth}-${today.getDate()}`; if (!userData[key]) userData[key] = {}; if (!userData[key].activities) userData[key].activities = []; if (!userData[key].activities.includes(activityId)) userData[key].activities.push(activityId); localStorage.setItem('userData', JSON.stringify(userData)); }
+            function toggleMenu() { document.getElementById('app-sidebar').classList.toggle('open'); document.getElementById('app-overlay').classList.toggle('active'); }
+            function closeMenu() { document.getElementById('app-sidebar').classList.remove('open'); document.getElementById('app-overlay').classList.remove('active'); }
+            function toggleDesktopCollapse() { document.getElementById('app-container').classList.toggle('sidebar-collapsed'); localStorage.setItem('sidebarCollapsed', document.getElementById('app-container').classList.contains('sidebar-collapsed')); }
+
+            // --- HEADER & SETTINGS ---
+            function updateGreeting() { const name = localStorage.getItem('userName') || 'there'; const hour = new Date().getHours(); let greeting = 'Hello'; if (hour < 12) greeting = 'Good morning'; else if (hour < 18) greeting = 'Good afternoon'; else greeting = 'Good evening'; document.getElementById('welcome-greeting').textContent = `${greeting}, ${name}!`; }
+            function applyTheme(theme) { if (theme === 'dark') document.body.classList.add('dark-mode'); else document.body.classList.remove('dark-mode'); localStorage.setItem('appTheme', theme); document.getElementById('theme-toggle').checked = (theme === 'dark'); if (document.getElementById('page-test-view').classList.contains('active') && document.getElementById('spiral-test-wrapper').style.display === 'block') { setupSpiralCanvas(); } }
+
+            // --- TEST IMPLEMENTATIONS ---
+            async function runTappingTest(hand, button) { playSound('click'); button.disabled = true; const otherButton = hand === 'Left' ? document.getElementById('start-right-btn') : document.getElementById('start-left-btn'); otherButton.disabled = true; let tapCount = 0, timeLeft = 20; const area = document.getElementById('tapping-area'); area.style.display = 'flex'; area.innerHTML = `<div style="font-size:1.2em; color:var(--text-secondary);">Time: ${timeLeft}s</div><div style="font-size:2.5em; font-weight:600;">0</div>`; const countTap = () => { tapCount++; area.children[1].textContent = tapCount; }; area.addEventListener('click', countTap); const countdown = setInterval(() => { timeLeft--; area.children[0].textContent = `Time: ${timeLeft}s`; }, 1000); await new Promise(res => setTimeout(res, 20000)); clearInterval(countdown); area.removeEventListener('click', countTap); area.style.display = 'none'; await showLoading(button, 500); const resultEl = document.getElementById('tapping-result'); resultEl.style.display = 'block'; resultEl.innerHTML += `<strong>${hand} Hand:</strong> ${tapCount} taps.<br>`; testResultsToday[hand === 'Left' ? 'tappingLeft' : 'tappingRight'] = tapCount; if (testResultsToday.tappingLeft !== undefined && testResultsToday.tappingRight !== undefined) { updateActivityStatus('tapping'); playSound('success'); } otherButton.disabled = false; }
+            function setupSpiralCanvas() { const canvas = document.getElementById('spiral-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); const dpr = window.devicePixelRatio || 1; const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); const centerX = rect.width / 2; const centerY = rect.height / 2; let isDrawing = false, lastX, lastY; userDrawnPoints = []; const isDark = document.body.classList.contains('dark-mode'); ctx.strokeStyle = isDark ? '#444' : '#E0E0E0'; ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 720; i++) { const angle = 0.1 * i; const x = centerX + (1 + angle) * Math.cos(angle); const y = centerY + (1 + angle) * Math.sin(angle); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke(); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = isDark ? '#FFFFFF' : 'var(--text-primary)'; function getPos(e) { const clientX = e.clientX || e.touches[0].clientX; const clientY = e.clientY || e.touches[0].clientY; return { x: clientX - rect.left, y: clientY - rect.top }; } function start(e) { isDrawing = true; const pos = getPos(e);[lastX, lastY] = [pos.x, pos.y]; ctx.beginPath(); ctx.moveTo(lastX, lastY); userDrawnPoints = [pos]; } function draw(e) { if (!isDrawing) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke();[lastX, lastY] = [pos.x, pos.y]; userDrawnPoints.push(pos); } canvas.onmousedown = start; canvas.ontouchstart = start; canvas.onmousemove = draw; canvas.ontouchmove = draw; canvas.onmouseup = () => isDrawing = false; canvas.onmouseleave = () => isDrawing = false; canvas.ontouchend = () => isDrawing = false; }
+            async function finishSpiral(button) { playSound('click'); await showLoading(button); const centerX = document.getElementById('spiral-canvas').getBoundingClientRect().width / 2; const centerY = document.getElementById('spiral-canvas').getBoundingClientRect().height / 2; if (userDrawnPoints.length < 10) { testResultsToday.spiralVariance = 999; document.getElementById('spiral-result').textContent = `Spiral Variance Score: N/A (Drawing too short)`; } else { const distances = userDrawnPoints.map(p => Math.sqrt((p.x - centerX) ** 2 + (p.y - centerY) ** 2)); const meanDistance = distances.reduce((a, b) => a + b) / distances.length; const variance = distances.reduce((acc, d) => acc + (d - meanDistance) ** 2, 0) / distances.length; const stdDev = Math.sqrt(variance); testResultsToday.spiralVariance = Math.round(stdDev); document.getElementById('spiral-result').textContent = `Spiral Variance Score: ${Math.round(stdDev)}`; } document.getElementById('spiral-result').style.display = 'block'; updateActivityStatus('spiral'); playSound('success'); }
+            async function runWalkTest(button) { playSound('click'); button.disabled = true; const display = document.getElementById('walk-display'); const pBar = document.getElementById('walk-progress-bar'); const pInner = pBar.querySelector('.progress-bar-inner'); pBar.style.display = 'block'; const runPhase = (icon, text, duration) => { display.innerHTML = `<div class="icon">${icon}</div><div class="instruction">${text}</div>`; pInner.style.transition = 'none'; pInner.style.width = '0%'; setTimeout(() => { pInner.style.transition = `width ${duration / 1000}s linear`; pInner.style.width = '100%'; }, 100); return new Promise(res => setTimeout(res, duration)); }; await runPhase('👟', 'Walking forward...', 10000); await runPhase('🔄', 'Turning around...', 5000); await runPhase('🧍', 'Standing still...', 10000); await showLoading(button, 1500); const score = Math.round(Math.random() * 30 + 65); document.getElementById('walk-result').style.display = 'block'; document.getElementById('walk-result').textContent = `Gait & Balance Score: ${score}/100`; testResultsToday.walkScore = score; updateActivityStatus('gait'); button.disabled = false; playSound('success'); }
+            async function runVoiceTest(button) { playSound('click'); button.disabled = true; const display = document.getElementById('voice-display'); const pBar = document.getElementById('voice-progress-bar'); const pInner = pBar.querySelector('.progress-bar-inner'); pBar.style.display = 'block'; display.innerHTML = `<div class="icon">🗣️</div><div class="instruction">Say "Aaaah"</div>`; pInner.style.transition = 'none'; pInner.style.width = '0%'; setTimeout(() => { pInner.style.transition = `width 10s linear`; pInner.style.width = '100%'; }, 100); await new Promise(res => setTimeout(res, 10000)); await showLoading(button, 1500); const score = Math.round(Math.random() * 40 + 55); document.getElementById('voice-result').style.display = 'block'; document.getElementById('voice-result').textContent = `Vocal Steadiness Score: ${score}/100`; testResultsToday.voiceScore = score; updateActivityStatus('speech'); button.disabled = false; playSound('success'); }
+            async function runReactionTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; const area = document.getElementById('reaction-area'); let times = [], round = 0; const startRound = () => { if (round >= 3) { const avg = Math.round(times.reduce((a, b) => a + b, 0) / 3); document.getElementById('reaction-result').textContent = `Average Reaction: ${avg} ms`; document.getElementById('reaction-result').style.display = 'block'; testResultsToday.reactionTime = avg; updateActivityStatus('reaction'); button.style.display = 'inline-block'; playSound('success'); return; } round++; area.textContent = 'Get Ready...'; area.className = 'test-display-area waiting'; let startTime; const handleTap = () => { playSound('click'); const rt = new Date().getTime() - startTime; times.push(rt); area.removeEventListener('click', handleTap); area.className = 'test-display-area'; setTimeout(startRound, 1000); }; setTimeout(() => { area.textContent = 'TAP NOW!'; area.className = 'test-display-area go'; startTime = new Date().getTime(); area.addEventListener('click', handleTap); }, Math.random() * 2000 + 1000); }; startRound(); }
+            async function runFocusTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; let timeOnTarget = 0; let isMouseOver = false; const target = document.getElementById('focus-target'); const timeDisplay = document.getElementById('focus-time'); target.addEventListener('mouseenter', () => isMouseOver = true); target.addEventListener('mouseleave', () => isMouseOver = false); const focusInterval = setInterval(() => { if (isMouseOver) { timeOnTarget += 100; timeDisplay.textContent = (timeOnTarget / 1000).toFixed(1); } }, 100); setTimeout(() => { clearInterval(focusInterval); document.getElementById('focus-result').textContent = `Time on Target: ${(timeOnTarget / 1000).toFixed(2)}s`; document.getElementById('focus-result').style.display = 'block'; testResultsToday.focusScore = timeOnTarget; updateActivityStatus('focus'); button.style.display = 'inline-block'; playSound('success'); }, 15000); }
+            async function runStroopTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; document.getElementById('cognitive-game-area').style.display = 'flex'; let score = 0, rounds = 0; const colors = { 'Red': '#ff3b30', 'Green': '#34c759', 'Blue': '#007aff', 'Orange': '#ff9500' }, names = Object.keys(colors); function nextRound() { if (rounds >= 10) { document.getElementById('cognitive-game-area').style.display = 'none'; document.getElementById('stroop-result').textContent = `Score: ${score}/10`; document.getElementById('stroop-result').style.display = 'block'; testResultsToday.stroopScore = score; updateActivityStatus('stroop'); button.style.display = 'inline-block'; playSound('success'); return; } rounds++; let word = names[Math.floor(Math.random() * names.length)], color = names[Math.floor(Math.random() * names.length)]; while (word === color) color = names[Math.floor(Math.random() * names.length)]; document.getElementById('cognitive-word').textContent = word; document.getElementById('cognitive-word').style.color = colors[color]; const btns = document.getElementById('cognitive-buttons'); btns.innerHTML = ''; names.sort(() => .5 - Math.random()).forEach(n => { const b = document.createElement('button'); b.textContent = n; b.style.backgroundColor = colors[n]; b.onclick = () => { playSound('click'); if (n === color) score++; setTimeout(nextRound, 100) }; btns.appendChild(b) }) } nextRound(); }
+            function createMemoryBoard() { const symbols = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊'], cards = [...symbols, ...symbols]; let flipped = [], matched = 0, tries = 0; const grid = document.getElementById('memory-grid'); grid.innerHTML = ''; document.getElementById('memory-result').style.display = 'none'; cards.sort(() => .5 - Math.random()).forEach(s => { const c = document.createElement('div'); c.className = 'card'; c.innerHTML = `<div class="card-face card-front"></div><div class="card-face card-back">${s}</div>`; c.onclick = function () { playSound('click'); if (flipped.length === 2 || c.classList.contains('flipped')) return; c.classList.add('flipped'); flipped.push(c); if (flipped.length === 2) { tries++; setTimeout(() => { const [c1, c2] = flipped; if (c1.innerHTML === c2.innerHTML) { c1.classList.add('matched'); c2.classList.add('matched'); matched++; if (matched === symbols.length) { document.getElementById('memory-result').textContent = `Success! ${tries} tries.`; document.getElementById('memory-result').style.display = 'block'; testResultsToday.memoryTries = tries; updateActivityStatus('memory'); playSound('success'); } } else { c1.classList.remove('flipped'); c2.classList.remove('flipped'); } flipped = []; }, 800) } }; grid.appendChild(c) }) }
+
+            // --- JOURNAL & DIAGNOSTICS ---
+            function renderCalendar() { const grid = document.getElementById('calendar-grid'); const monthEl = document.getElementById('month-year'); if (!grid) return; grid.innerHTML = ''; const firstDay = new Date(currentYear, currentMonth, 1).getDay(); const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate(); monthEl.textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => grid.innerHTML += `<div class="day-name">${d}</div>`); for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>'; for (let d = 1; d <= daysInMonth; d++) { const dayEl = document.createElement('div'); dayEl.className = 'day'; dayEl.textContent = d; dayEl.dataset.day = d; const key = `${currentYear}-${currentMonth}-${d}`; if (userData[key]) { dayEl.innerHTML += '<div class="dot"></div>'; } if (d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear()) dayEl.classList.add('today'); if (d === selectedDay) dayEl.classList.add('active'); grid.appendChild(dayEl); } loadDataForDay(selectedDay); }
+            function selectDay(day) { playSound('click'); selectedDay = day; renderCalendar(); }
+            function loadDataForDay(day) { document.getElementById('detail-date-title').textContent = `${new Date(currentYear, currentMonth, day).toLocaleString('default', { month: 'long' })} ${day}, ${currentYear}`; const key = `${currentYear}-${currentMonth}-${day}`; const data = userData[key] || {}; document.getElementById('journal-notes-input').value = data.notes || ''; const s = data.symptoms || { stiffness: 0, tremor: 0, fatigue: 0 }; document.querySelectorAll('.custom-slider-container').forEach(c => { const symptom = c.dataset.symptom; const value = s[symptom] || 0; updateSliderUI(c, value / 5); }); const m = data.meds || { levodopa: [], carbidopa: [] }; document.querySelectorAll('.med-pills').forEach(p => { const medName = p.dataset.med; p.querySelectorAll('.pill-btn').forEach(btn => { const time = btn.textContent.toLowerCase(); if (m[medName]?.includes(time)) btn.classList.add('active'); else btn.classList.remove('active'); }); }); const activitiesEl = document.getElementById('completed-activities-list'); const activities = data.activities || []; if (activities.length > 0) { activitiesEl.innerHTML = activities.map(act => `<li>✅ ${act.charAt(0).toUpperCase() + act.slice(1)}</li>`).join(''); } else { activitiesEl.innerHTML = '<li>No activities logged for this day.</li>'; } }
+            async function saveJournal(button) { playSound('click'); await showLoading(button, 500); const key = `${currentYear}-${currentMonth}-${selectedDay}`; if (!userData[key]) userData[key] = {}; userData[key].notes = document.getElementById('journal-notes-input').value; userData[key].symptoms = {}; document.querySelectorAll('.custom-slider-container').forEach(c => { const symptom = c.dataset.symptom; const fill = c.querySelector('.slider-fill'); const value = Math.round((parseFloat(fill.style.width) / 100) * 5); userData[key].symptoms[symptom] = value; }); userData[key].meds = { levodopa: [], carbidopa: [] }; document.querySelectorAll('.med-pills').forEach(p => { const medName = p.dataset.med; p.querySelectorAll('.pill-btn.active').forEach(btn => { userData[key].meds[medName].push(btn.textContent.toLowerCase()); }); }); localStorage.setItem('userData', JSON.stringify(userData)); const toast = document.getElementById('toast-message'); toast.textContent = `Journal saved!`; toast.className = 'toast show'; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 2000); renderCalendar(); playSound('success'); }
+            function updateSliderUI(container, percent) { const fill = container.querySelector('.slider-fill'); const handle = container.querySelector('.slider-handle'); const p = Math.max(0, Math.min(1, percent)); fill.style.width = `${p * 100}%`; handle.style.left = `${p * 100}%`; }
+
+            function runDiagnostics() {
+                document.getElementById('report-date-subtitle').textContent = `Generated on ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+                const results = []; let totalScore = 0;
+                const addResult = (test, value, unit, good, mod, inverted = false) => { let sev; if (value === undefined) return; if ((!inverted && value <= good) || (inverted && value >= good)) { sev = 'Good'; } else if ((!inverted && value <= mod) || (inverted && value >= mod)) { sev = 'Moderate'; totalScore++; } else { sev = 'Concerning'; totalScore += 2; } results.push({ test, value: `${value} ${unit}`, sev }); };
+                addResult('Tapping (Left)', testResultsToday.tappingLeft, 'taps', 100, 40, true);
+                addResult('Tapping (Right)', testResultsToday.tappingRight, 'taps', 100, 40, true);
+                if (testResultsToday.tappingLeft !== undefined && testResultsToday.tappingRight !== undefined) addResult('Tapping Variance', Math.abs(testResultsToday.tappingLeft - testResultsToday.tappingRight), 'taps', 10, 20);
+                addResult('Spiral Variance', testResultsToday.spiralVariance, 'score', 8, 15);
+                addResult('Gait Score', testResultsToday.walkScore, '/ 100', 85, 75, true);
+                addResult('Speech Score', testResultsToday.voiceScore, '/ 100', 85, 75, true);
+                addResult('Reaction Time', testResultsToday.reactionTime, 'ms', 350, 450);
+                addResult('Sustained Attention', testResultsToday.focusScore ? (testResultsToday.focusScore / 1000).toFixed(2) : undefined, 's', 13, 10, true);
+                addResult('Cognitive Score', testResultsToday.stroopScore, '/ 10', 8, 6, true);
+                addResult('Memory Tries', testResultsToday.memoryTries, 'tries', 9, 12);
+
+                const tableBody = document.getElementById('report-table-body');
+                if (results.length > 0) {
+                    tableBody.innerHTML = results.map(r => `<tr class="severity-${r.sev}"><td>${r.test}</td><td>${r.value}</td><td>${r.sev}</td></tr>`).join('');
+                    document.getElementById('analysis-section').style.display = 'block';
+                    let reportText;
+                    if (totalScore === 0) { reportText = "<strong>Excellent work.</strong><br>All test results fall within the typical range. Continue with regular monitoring to track your progress."; }
+                    else if (totalScore <= 4) { reportText = "<strong>Some observations noted.</strong><br>A few tests showed results slightly outside the typical range. It's recommended to continue monitoring these specific areas and discuss any consistent patterns with your healthcare provider."; }
+                    else { reportText = "<strong>Several areas for review.</strong><br>A number of tests showed results in a concerning range. This data provides a valuable starting point for a conversation with a neurologist. Consider sharing or printing this summary for your next appointment."; }
+                    document.getElementById('analysis-text').innerHTML = reportText;
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--text-secondary);">No test data for today. Complete tests to see results.</td></tr>`;
+                    document.getElementById('analysis-section').style.display = 'none';
+                }
+
+                if (tappingChartInstance) tappingChartInstance.destroy();
+                tappingChartInstance = new Chart(document.getElementById('tappingChart'), { type: 'line', data: { labels: ['W1', 'W2', 'W3', 'W4', 'Today'], datasets: [{ label: 'Taps (Dominant Hand)', data: [55, 58, 52, 60, Math.max(testResultsToday.tappingLeft || 0, testResultsToday.tappingRight || 0)], borderColor: 'var(--primary-blue)', tension: 0.1, backgroundColor: 'rgba(43, 99, 217, 0.1)', fill: true }] }, options: { animation: { duration: 1000, easing: 'easeOutQuart' } } });
+            }
+
+            // --- INITIALIZATION ---
+            function initializeEventListeners() {
+                document.querySelectorAll('.nav-link').forEach(link => link.addEventListener('click', () => showPage(link.id.replace('nav-', ''))));
+                document.querySelectorAll('.test-card').forEach(card => card.addEventListener('click', () => showTestView(card.dataset.testname)));
+                document.getElementById('back-button').addEventListener('click', goBack);
+                document.getElementById('menu-toggle').addEventListener('click', toggleMenu);
+                document.getElementById('app-overlay').addEventListener('click', closeMenu);
+                document.getElementById('collapse-btn').addEventListener('click', toggleDesktopCollapse);
+                document.getElementById('start-left-btn').addEventListener('click', e => runTappingTest('Left', e.currentTarget));
+                document.getElementById('start-right-btn').addEventListener('click', e => runTappingTest('Right', e.currentTarget));
+                document.getElementById('finish-spiral-btn').addEventListener('click', e => finishSpiral(e.currentTarget));
+                document.getElementById('start-walk-btn').addEventListener('click', e => runWalkTest(e.currentTarget));
+                document.getElementById('start-voice-btn').addEventListener('click', e => runVoiceTest(e.currentTarget));
+                document.getElementById('start-reaction-btn').addEventListener('click', e => runReactionTest(e.currentTarget));
+                document.getElementById('start-focus-btn').addEventListener('click', e => runFocusTest(e.currentTarget));
+                document.getElementById('start-stroop-btn').addEventListener('click', e => runStroopTest(e.currentTarget));
+                document.getElementById('reset-memory-btn').addEventListener('click', createMemoryBoard);
+                document.getElementById('prev-month').addEventListener('click', () => { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); });
+                document.getElementById('next-month').addEventListener('click', () => { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderCalendar(); });
+                document.getElementById('save-journal-btn').addEventListener('click', e => saveJournal(e.currentTarget));
+                document.getElementById('theme-toggle').addEventListener('change', (e) => applyTheme(e.target.checked ? 'dark' : 'light'));
+                document.getElementById('save-name-btn').addEventListener('click', () => { playSound('success'); const newName = document.getElementById('username-input').value; if (newName) { localStorage.setItem('userName', newName); updateGreeting(); } });
+                document.getElementById('clear-data-btn').addEventListener('click', () => { if (confirm('Are you sure you want to clear all test and journal data?')) { testResultsToday = {}; userData = {}; localStorage.removeItem('userData'); renderCalendar(); runDiagnostics(); playSound('success'); } });
+                document.querySelectorAll('.custom-slider-container').forEach(container => { let isDragging = false; const track = container.querySelector('.slider-track'); function handleMove(e) { const rect = track.getBoundingClientRect(); const clientX = e.clientX || e.touches[0].clientX; let percent = (clientX - rect.left) / rect.width; updateSliderUI(container, percent); } track.addEventListener('mousedown', e => { isDragging = true; handleMove(e); }); window.addEventListener('mouseup', () => isDragging = false); window.addEventListener('mousemove', e => { if (isDragging && e.target.closest('.custom-slider-container') === container) handleMove(e); }); track.addEventListener('touchstart', e => { isDragging = true; handleMove(e); }); window.addEventListener('touchend', () => isDragging = false); window.addEventListener('touchmove', e => { if (isDragging && e.target.closest('.custom-slider-container') === container) handleMove(e); }); });
+                document.querySelectorAll('.pill-btn').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
+                document.getElementById('calendar-grid').addEventListener('click', e => { if (e.target.classList.contains('day') && !e.target.classList.contains('other-month')) selectDay(parseInt(e.target.dataset.day)); });
+                window.addEventListener('mousemove', e => { cursorDot.style.left = `${e.clientX}px`; cursorDot.style.top = `${e.clientY}px`; });
+                document.querySelectorAll('button, a, .test-card, .day, .slider-track, .pill-btn, .theme-switch').forEach(el => { el.addEventListener('mouseenter', () => cursorDot.classList.add('active')); el.addEventListener('mouseleave', () => cursorDot.classList.remove('active')); });
+                document.querySelectorAll('button, a, .test-card, .day, .pill-btn, .theme-switch, .slider-handle').forEach(el => el.addEventListener('click', () => playSound('click')));
+            }
+
+            // Initial Load
+            initializeEventListeners();
+            const savedTheme = localStorage.getItem('appTheme') || 'light';
+            applyTheme(savedTheme);
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                document.getElementById('app-container').classList.add('sidebar-collapsed');
+            }
+            document.getElementById('username-input').value = localStorage.getItem('userName') || 'Sarah';
+            userData = JSON.parse(localStorage.getItem('userData')) || { [`${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate() - 2}`]: { activities: ['tapping'], symptoms: { stiffness: 3, tremor: 4, fatigue: 4 }, meds: { levodopa: ['am'], carbidopa: ['am'] } } };
+            updateGreeting();
+            showPage('physical');
+        });
+    </script>
+</body>
+
+</html>
