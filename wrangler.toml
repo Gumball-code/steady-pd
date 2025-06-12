@@ -4,8 +4,8 @@ name = "steady-pd"
 # The main entry point for your Worker. 
 # COMMON EXAMPLES: "src/index.ts", "src/index.js", "worker.js"
 # Make sure this path is correct for your project structure.
-main = "ParkinsonsApp.html" 
 
+main = "index.js"
 # Ensures your Worker runs with a consistent version of the Workers runtime.
 # Use the date you are creating the project.
 compatibility_date = "2025-06-11" 
