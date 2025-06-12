@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SteadyPD - Fully Functional Prototype</title>
+    <title>SteadyPD - Parkinson's Symptom Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -23,8 +23,6 @@
             --green-bg: #ECFDF3;
             --yellow-bg: #FFFAEB;
             --red-bg: #FEF3F2;
-            --sidebar-width: 260px;
-            --sidebar-width-collapsed: 88px;
         }
 
         .dark-mode {
@@ -66,20 +64,17 @@
         .app-layout {
             display: flex;
             height: 100vh;
-            position: relative;
-            overflow-x: hidden;
         }
 
-        /* --- Sidebar & Overlay --- */
         .sidebar {
-            width: var(--sidebar-width);
+            width: 260px;
             background-color: var(--bg-sidebar);
             border-right: 1px solid var(--border-color);
             padding: 24px;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            transition: width 0.3s ease-in-out, background-color 0.3s, border-color 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, transform 0.3s ease-in-out;
             z-index: 1002;
         }
 
@@ -164,7 +159,6 @@
             pointer-events: auto;
         }
 
-        /* --- Main Content --- */
         .main-content {
             flex-grow: 1;
             overflow-y: auto;
@@ -217,65 +211,6 @@
             background-color: #FFD0B3;
         }
 
-        /* --- Responsive & Collapsed Logic --- */
-        .sidebar-collapsed .sidebar {
-            width: var(--sidebar-width-collapsed);
-        }
-
-        .sidebar-collapsed .sidebar .link-text,
-        .sidebar-collapsed .sidebar .sidebar-header span {
-            opacity: 0;
-            width: 0;
-        }
-
-        .sidebar-collapsed .sidebar .nav-link {
-            justify-content: center;
-        }
-
-        .sidebar-collapsed .sidebar .nav-link .icon {
-            margin-right: 0;
-        }
-
-        .sidebar-collapsed #collapse-btn {
-            transform: rotate(180deg);
-        }
-
-        @media (max-width: 900px) {
-            .sidebar {
-                position: fixed;
-                height: 100%;
-                transform: translateX(-100%);
-                width: var(--sidebar-width);
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-                box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
-            }
-
-            .sidebar-collapsed .sidebar {
-                margin-left: 0;
-                transform: translateX(-100%);
-            }
-
-            #collapse-btn {
-                display: none;
-            }
-
-            #menu-toggle {
-                display: block;
-            }
-
-            .main-header {
-                padding: 16px 24px;
-            }
-
-            .page.active {
-                padding: 24px;
-            }
-        }
-
-        /* Other styles are unchanged */
         .page {
             display: none;
         }
