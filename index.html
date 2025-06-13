@@ -85,7 +85,6 @@
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 32px;
-            /* Ensure the header doesn't shrink when collapsing */
             min-height: 29px; 
         }
 
@@ -225,6 +224,9 @@
         }
 
         .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 32px;
         }
 
@@ -244,7 +246,9 @@
         button {
             font-family: inherit;
             position: relative;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             padding: 12px 20px;
             font-size: 16px;
             font-weight: 500;
@@ -254,6 +258,12 @@
             border-radius: 8px;
             cursor: none;
             transition: background-color 0.2s;
+        }
+        
+        button.secondary {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
 
         .result,
@@ -781,7 +791,6 @@
             margin-top: 16px;
         }
 
-        /* === START OF NEW/FIXED CSS FOR COLLAPSED SIDEBAR === */
         .logo-collapsed {
             display: none;
             font-size: 20px;
@@ -789,7 +798,6 @@
             color: var(--text-primary);
         }
 
-        /* This is the class that drives the collapse animation */
         .sidebar-collapsed .sidebar {
             width: 88px;
             padding-left: 12px;
@@ -812,7 +820,65 @@
         .sidebar-collapsed .logo-collapsed {
             display: block;
         }
-        /* === END OF NEW/FIXED CSS === */
+
+        /* === START OF NEW PRINT-SPECIFIC CSS === */
+        .print-only {
+            display: none;
+        }
+        
+        @media print {
+            /* Hide everything that isn't the report */
+            .sidebar, .main-header, #print-report-btn, .chart-container {
+                display: none !important;
+            }
+            .page {
+                display: none !important;
+            }
+            #page-reports {
+                display: block !important;
+                padding: 0;
+                animation: none !important;
+            }
+            body {
+                background-color: #FFFFFF !important;
+                color: #000000 !important;
+                cursor: auto !important;
+            }
+            .main-content {
+                overflow-y: visible !important;
+            }
+            .app-layout {
+                display: block !important;
+            }
+            .print-only {
+                display: block;
+                padding-bottom: 24px;
+                border-bottom: 1px solid #ddd;
+                margin-bottom: 24px;
+            }
+            .report-table {
+                margin-top: 12px;
+            }
+            .report-table, .report-table th, .report-table td {
+                border-color: #ddd !important;
+            }
+            .severity-Good { background-color: #e6f7f0 !important; }
+            .severity-Moderate { background-color: #fff9e6 !important; }
+            .severity-Concerning { background-color: #ffebe6 !important; }
+
+            /* Ensure light theme variables for printing */
+            :root, body {
+                --primary-blue: #2B63D9;
+                --text-primary: #1D2939;
+                --text-secondary: #667085;
+                --bg-main: #FFFFFF;
+                --border-color: #EAECF0;
+                --green-bg: #ECFDF3;
+                --yellow-bg: #FFFAEB;
+                --red-bg: #FEF3F2;
+            }
+        }
+        /* === END OF NEW PRINT-SPECIFIC CSS === */
     </style>
 </head>
 
@@ -827,12 +893,10 @@
         <div id="app-overlay"></div>
         <div class="sidebar" id="app-sidebar">
             <div class="sidebar-header">
-                <!-- === START OF MODIFIED HTML FOR LOGO SWAP === -->
                 <div>
                     <span class="logo-full link-text">SteadyPD</span>
                     <span class="logo-collapsed">S|PD</span>
                 </div>
-                <!-- === END OF MODIFIED HTML === -->
                 <button id="collapse-btn">«</button>
             </div>
             <nav class="sidebar-nav">
@@ -861,8 +925,10 @@
 
             <main id="page-physical" class="page">
                 <div class="page-header">
-                    <h1>Physical Tests</h1>
-                    <p>Track your physical symptoms and progress over time with these tests.</p>
+                    <div>
+                        <h1>Physical Tests</h1>
+                        <p>Track your physical symptoms and progress over time with these tests.</p>
+                    </div>
                 </div>
                 <div id="physical-tests-list">
                     <div class="test-card" data-testname="tapping">
@@ -898,8 +964,10 @@
 
             <main id="page-cognitive" class="page">
                 <div class="page-header">
-                    <h1>Cognitive & Fine Motor Tests</h1>
-                    <p>These tests evaluate reaction, attention, and cognitive processing.</p>
+                    <div>
+                        <h1>Cognitive & Fine Motor Tests</h1>
+                        <p>These tests evaluate reaction, attention, and cognitive processing.</p>
+                    </div>
                 </div>
                 <div id="cognitive-tests-list">
                     <div class="test-card" data-testname="reaction">
@@ -1031,8 +1099,10 @@
 
             <main id="page-journal" class="page">
                 <div class="page-header">
-                    <h1>Daily Journal</h1>
-                    <p>Track your symptoms and activities to monitor your progress.</p>
+                    <div>
+                        <h1>Daily Journal</h1>
+                        <p>Track your symptoms and activities to monitor your progress.</p>
+                    </div>
                 </div>
                 <div id="calendar-container">
                     <div id="calendar-header"><button id="prev-month" style="width:auto; padding: 5px 10px;">
@@ -1097,11 +1167,26 @@
             </main>
 
             <main id="page-reports" class="page">
+                <!-- === START OF MODIFIED REPORTS PAGE HTML === -->
                 <div class="page-header">
-                    <h1>Summary Report</h1>
-                    <p id="report-date-subtitle"></p>
+                    <div>
+                        <h1>Summary Report</h1>
+                        <p id="report-date-subtitle"></p>
+                    </div>
+                    <button id="print-report-btn" class="secondary">
+                        <span class="icon">🖨️</span>
+                        <span class="btn-text">Print Report</span>
+                    </button>
                 </div>
+
+                <div class="print-only">
+                    <h2>SteadyPD Symptom Report</h2>
+                    <p><strong>Patient:</strong> <span id="print-patient-name"></span></p>
+                    <p><strong>Date of Report:</strong> <span id="print-report-date"></span></p>
+                </div>
+
                 <div style="margin-top: 32px;">
+                <!-- === END OF MODIFIED REPORTS PAGE HTML === -->
                     <h3>Detailed Results</h3>
                     <table class="report-table">
                         <thead>
@@ -1120,7 +1205,7 @@
                     </table>
                 </div>
                 <div class="analysis-section" id="analysis-section" style="display:none;">
-                    <h3 id="analysis-title">Analysis & Next Steps</h3>
+                    <h3 id="analysis-title"></h3>
                     <p id="analysis-text"></p>
                 </div>
                 <div class="chart-container" style="margin-top: 32px;">
@@ -1130,8 +1215,10 @@
 
             <main id="page-settings" class="page">
                 <div class="page-header">
-                    <h1>Settings</h1>
-                    <p>Customize your application experience.</p>
+                    <div>
+                        <h1>Settings</h1>
+                        <p>Customize your application experience.</p>
+                    </div>
                 </div>
                 <div class="settings-group"><label for="username-input">Your Name</label>
                     <div><input type="text" id="username-input" placeholder="Enter your name"><button
@@ -1187,138 +1274,8 @@
             function handleSensorData(event) { const acceleration = event.accelerationIncludingGravity; const x = acceleration.x; const y = acceleration.y; const z = acceleration.z; const display = document.getElementById('walk-display'); if (display) { display.innerHTML = ` <div class="icon">🚶‍♂️</div> <div class="instruction" style="font-size: 0.8em; text-align: left; width: 100%; padding: 0 20px;"> X: ${x.toFixed(2)}<br> Y: ${y.toFixed(2)}<br> Z: ${z.toFixed(2)} </div> `; } }
             async function runWalkTest(button) { playSound('click'); if (typeof DeviceMotionEvent.requestPermission === 'function') { try { const permissionState = await DeviceMotionEvent.requestPermission(); if (permissionState === 'granted') { window.addEventListener('devicemotion', handleSensorData); } else { alert('Permission to access motion sensors was denied.'); return; } } catch (error) { console.error(error); alert('Could not get sensor permission. Please try again.'); return; } } else { window.addEventListener('devicemotion', handleSensorData); } button.disabled = true; button.querySelector('.btn-text').textContent = "Stop Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => stopWalkTest(newButton)); newButton.disabled = false; }
             async function stopWalkTest(button) { playSound('click'); window.removeEventListener('devicemotion', handleSensorData); await showLoading(button, 1500); const score = Math.round(Math.random() * 30 + 65); document.getElementById('walk-result').style.display = 'block'; document.getElementById('walk-result').textContent = `Gait & Balance Score: ${score}/100`; testResultsToday.walkScore = score; updateActivityStatus('gait'); playSound('success'); button.querySelector('.btn-text').textContent = "Start Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => runWalkTest(newButton)); document.getElementById('walk-display').innerHTML = ` <div class="icon">👟</div> <div class="instruction">Test complete! Press start to run again.</div> `; }
-            
-            // =========================================================================
-            // === START OF REVISED SPEECH/AUDIO TEST CODE =============================
-            // =========================================================================
-
-            async function startVoiceTest(button) {
-                playSound('click');
-                button.disabled = true;
-
-                // Reset state from any previous runs
-                voiceTestState = { audioContext: null, analyser: null, microphone: null, animationFrameId: null, timeoutId: null, allFrequencies: [] };
-
-                let stream;
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                } catch (err) {
-                    console.error("Error accessing microphone:", err);
-                    alert("Could not access the microphone. Please check your browser permissions.");
-                    button.disabled = false; // Re-enable button on failure
-                    return; // Exit the function
-                }
-
-                // --- If permission is granted, proceed ---
-                voiceTestState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                voiceTestState.analyser = voiceTestState.audioContext.createAnalyser();
-                voiceTestState.microphone = voiceTestState.audioContext.createMediaStreamSource(stream);
-                voiceTestState.microphone.connect(voiceTestState.analyser);
-                
-                voiceTestState.analyser.fftSize = 2048;
-                const bufferLength = voiceTestState.analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-                
-                const visualizerCanvas = document.getElementById('voice-visualizer-canvas');
-                visualizerCanvas.style.display = 'block';
-                const canvasCtx = visualizerCanvas.getContext('2d');
-                document.getElementById('voice-display').style.display = 'none';
-                const pBar = document.getElementById('voice-progress-bar');
-                const pInner = pBar.querySelector('.progress-bar-inner');
-                pBar.style.display = 'block';
-
-                function drawVisualizer() {
-                    voiceTestState.animationFrameId = requestAnimationFrame(drawVisualizer);
-                    voiceTestState.analyser.getByteFrequencyData(dataArray);
-
-                    canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-highlight').trim();
-                    canvasCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
-                    
-                    const barWidth = (visualizerCanvas.width / bufferLength) * 2.5;
-                    let barHeight, x = 0, dominantFrequency = 0, maxAmplitude = -1;
-                    
-                    for (let i = 0; i < bufferLength; i++) {
-                        barHeight = dataArray[i];
-                        if(barHeight > maxAmplitude) {
-                            maxAmplitude = barHeight;
-                            dominantFrequency = i * voiceTestState.audioContext.sampleRate / voiceTestState.analyser.fftSize;
-                        }
-                        
-                        canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim();
-                        canvasCtx.fillRect(x, visualizerCanvas.height - barHeight / 2, barWidth, barHeight / 2);
-                        x += barWidth + 1;
-                    }
-                    if(maxAmplitude > 10) { // Only record if there's significant sound
-                        voiceTestState.allFrequencies.push(dominantFrequency);
-                    }
-                }
-                drawVisualizer();
-
-                pInner.style.transition = 'none';
-                pInner.style.width = '0%';
-                setTimeout(() => {
-                    pInner.style.transition = 'width 10s linear';
-                    pInner.style.width = '100%';
-                }, 100);
-
-                // Automatically stop the test after 10 seconds
-                voiceTestState.timeoutId = setTimeout(() => stopVoiceTest(button), 10000);
-
-                // Change button to be a "Stop" button
-                button.querySelector('.btn-text').textContent = "Stop Test";
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                newButton.addEventListener('click', () => stopVoiceTest(newButton));
-                newButton.disabled = false;
-            }
-
-            async function stopVoiceTest(button, options = {}) {
-                if (!voiceTestState.audioContext) return; // Already stopped or never started
-
-                // Cleanup audio resources
-                clearTimeout(voiceTestState.timeoutId);
-                cancelAnimationFrame(voiceTestState.animationFrameId);
-                if (voiceTestState.microphone && voiceTestState.microphone.mediaStream) {
-                    voiceTestState.microphone.mediaStream.getTracks().forEach(track => track.stop());
-                }
-                if (voiceTestState.audioContext.state !== 'closed') {
-                    voiceTestState.audioContext.close();
-                }
-
-                // If we are just leaving the page, skip the results part
-                if (options.skipResult) {
-                    voiceTestState = {}; // Reset state fully
-                    return;
-                }
-
-                await showLoading(button, 1500);
-                
-                let score = 0;
-                if(voiceTestState.allFrequencies.length > 10){
-                    const mean = voiceTestState.allFrequencies.reduce((a, b) => a + b) / voiceTestState.allFrequencies.length;
-                    const stdDev = Math.sqrt(voiceTestState.allFrequencies.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / voiceTestState.allFrequencies.length);
-                    score = Math.max(0, Math.min(100, 100 - (stdDev / 2)));
-                }
-                
-                document.getElementById('voice-result').style.display = 'block';
-                document.getElementById('voice-result').textContent = `Vocal Steadiness Score: ${Math.round(score)}/100`;
-                testResultsToday.voiceScore = Math.round(score);
-                updateActivityStatus('speech');
-                playSound('success');
-
-                // Reset button to its original "Start" state
-                button.querySelector('.btn-text').textContent = "Start Test";
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                newButton.addEventListener('click', () => startVoiceTest(newButton));
-
-                voiceTestState = {}; // Clear state for next run
-            }
-
-            // =========================================================================
-            // === END OF REVISED SPEECH/AUDIO TEST CODE ===============================
-            // =========================================================================
-
+            async function startVoiceTest(button) { playSound('click'); button.disabled = true; voiceTestState = { audioContext: null, analyser: null, microphone: null, animationFrameId: null, timeoutId: null, allFrequencies: [] }; let stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); } catch (err) { console.error("Error accessing microphone:", err); alert("Could not access the microphone. Please check your browser permissions."); button.disabled = false; return; } voiceTestState.audioContext = new (window.AudioContext || window.webkitAudioContext)(); voiceTestState.analyser = voiceTestState.audioContext.createAnalyser(); voiceTestState.microphone = voiceTestState.audioContext.createMediaStreamSource(stream); voiceTestState.microphone.connect(voiceTestState.analyser); voiceTestState.analyser.fftSize = 2048; const bufferLength = voiceTestState.analyser.frequencyBinCount; const dataArray = new Uint8Array(bufferLength); const visualizerCanvas = document.getElementById('voice-visualizer-canvas'); visualizerCanvas.style.display = 'block'; const canvasCtx = visualizerCanvas.getContext('2d'); document.getElementById('voice-display').style.display = 'none'; const pBar = document.getElementById('voice-progress-bar'); const pInner = pBar.querySelector('.progress-bar-inner'); pBar.style.display = 'block'; function drawVisualizer() { voiceTestState.animationFrameId = requestAnimationFrame(drawVisualizer); voiceTestState.analyser.getByteFrequencyData(dataArray); canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-highlight').trim(); canvasCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height); const barWidth = (visualizerCanvas.width / bufferLength) * 2.5; let barHeight, x = 0, dominantFrequency = 0, maxAmplitude = -1; for (let i = 0; i < bufferLength; i++) { barHeight = dataArray[i]; if(barHeight > maxAmplitude) { maxAmplitude = barHeight; dominantFrequency = i * voiceTestState.audioContext.sampleRate / voiceTestState.analyser.fftSize; } canvasCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim(); canvasCtx.fillRect(x, visualizerCanvas.height - barHeight / 2, barWidth, barHeight / 2); x += barWidth + 1; } if(maxAmplitude > 10) { voiceTestState.allFrequencies.push(dominantFrequency); } } drawVisualizer(); pInner.style.transition = 'none'; pInner.style.width = '0%'; setTimeout(() => { pInner.style.transition = 'width 10s linear'; pInner.style.width = '100%'; }, 100); voiceTestState.timeoutId = setTimeout(() => stopVoiceTest(button), 10000); button.querySelector('.btn-text').textContent = "Stop Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => stopVoiceTest(newButton)); newButton.disabled = false; }
+            async function stopVoiceTest(button, options = {}) { if (!voiceTestState.audioContext) return; clearTimeout(voiceTestState.timeoutId); cancelAnimationFrame(voiceTestState.animationFrameId); if (voiceTestState.microphone && voiceTestState.microphone.mediaStream) { voiceTestState.microphone.mediaStream.getTracks().forEach(track => track.stop()); } if (voiceTestState.audioContext.state !== 'closed') { voiceTestState.audioContext.close(); } if (options.skipResult) { voiceTestState = {}; return; } await showLoading(button, 1500); let score = 0; if(voiceTestState.allFrequencies.length > 10){ const mean = voiceTestState.allFrequencies.reduce((a, b) => a + b) / voiceTestState.allFrequencies.length; const stdDev = Math.sqrt(voiceTestState.allFrequencies.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / voiceTestState.allFrequencies.length); score = Math.max(0, Math.min(100, 100 - (stdDev / 2))); } document.getElementById('voice-result').style.display = 'block'; document.getElementById('voice-result').textContent = `Vocal Steadiness Score: ${Math.round(score)}/100`; testResultsToday.voiceScore = Math.round(score); updateActivityStatus('speech'); playSound('success'); button.querySelector('.btn-text').textContent = "Start Test"; const newButton = button.cloneNode(true); button.parentNode.replaceChild(newButton, button); newButton.addEventListener('click', () => startVoiceTest(newButton)); voiceTestState = {}; }
             async function runReactionTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; const area = document.getElementById('reaction-area'); let times = [], round = 0; const startRound = () => { if (round >= 3) { const avg = Math.round(times.reduce((a, b) => a + b, 0) / 3); document.getElementById('reaction-result').textContent = `Average Reaction: ${avg} ms`; document.getElementById('reaction-result').style.display = 'block'; testResultsToday.reactionTime = avg; updateActivityStatus('reaction'); button.style.display = 'inline-block'; playSound('success'); return; } round++; area.textContent = 'Get Ready...'; area.className = 'test-display-area waiting'; let startTime; const handleTap = () => { playSound('click'); const rt = new Date().getTime() - startTime; times.push(rt); area.removeEventListener('click', handleTap); area.className = 'test-display-area'; setTimeout(startRound, 1000); }; setTimeout(() => { area.textContent = 'TAP NOW!'; area.className = 'test-display-area go'; startTime = new Date().getTime(); area.addEventListener('click', handleTap); }, Math.random() * 2000 + 1000); }; startRound(); }
             async function runFocusTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; let timeOnTarget = 0; let isMouseOver = false; const target = document.getElementById('focus-target'); const timeDisplay = document.getElementById('focus-time'); target.addEventListener('mouseenter', () => isMouseOver = true); target.addEventListener('mouseleave', () => isMouseOver = false); const focusInterval = setInterval(() => { if (isMouseOver) { timeOnTarget += 100; timeDisplay.textContent = (timeOnTarget / 1000).toFixed(1); } }, 100); setTimeout(() => { clearInterval(focusInterval); document.getElementById('focus-result').textContent = `Time on Target: ${(timeOnTarget / 1000).toFixed(2)}s`; document.getElementById('focus-result').style.display = 'block'; testResultsToday.focusScore = timeOnTarget; updateActivityStatus('focus'); button.style.display = 'inline-block'; playSound('success'); }, 15000); }
             async function runStroopTest(button) { playSound('click'); await showLoading(button, 200); button.style.display = 'none'; document.getElementById('cognitive-game-area').style.display = 'flex'; let score = 0, rounds = 0; const colors = { 'Red': '#ff3b30', 'Green': '#34c759', 'Blue': '#007aff', 'Orange': '#ff9500' }, names = Object.keys(colors); function nextRound() { if (rounds >= 10) { document.getElementById('cognitive-game-area').style.display = 'none'; document.getElementById('stroop-result').textContent = `Score: ${score}/10`; document.getElementById('stroop-result').style.display = 'block'; testResultsToday.stroopScore = score; updateActivityStatus('stroop'); button.style.display = 'inline-block'; playSound('success'); return; } rounds++; let word = names[Math.floor(Math.random() * names.length)], color = names[Math.floor(Math.random() * names.length)]; while (word === color) color = names[Math.floor(Math.random() * names.length)]; document.getElementById('cognitive-word').textContent = word; document.getElementById('cognitive-word').style.color = colors[color]; const btns = document.getElementById('cognitive-buttons'); btns.innerHTML = ''; names.sort(() => .5 - Math.random()).forEach(n => { const b = document.createElement('button'); b.textContent = n; b.style.backgroundColor = colors[n]; b.onclick = () => { playSound('click'); if (n === color) score++; setTimeout(nextRound, 100) }; btns.appendChild(b) }) } nextRound(); }
@@ -1331,8 +1288,17 @@
             async function saveJournal(button) { playSound('click'); await showLoading(button, 500); const key = `${currentYear}-${currentMonth}-${selectedDay}`; if (!userData[key]) userData[key] = {}; userData[key].notes = document.getElementById('journal-notes-input').value; userData[key].symptoms = {}; document.querySelectorAll('.custom-slider-container').forEach(c => { const symptom = c.dataset.symptom; const fill = c.querySelector('.slider-fill'); const value = Math.round((parseFloat(fill.style.width) / 100) * 5); userData[key].symptoms[symptom] = value; }); userData[key].meds = { levodopa: [], carbidopa: [] }; document.querySelectorAll('.med-pills').forEach(p => { const medName = p.dataset.med; p.querySelectorAll('.pill-btn.active').forEach(btn => { userData[key].meds[medName].push(btn.textContent.toLowerCase()); }); }); localStorage.setItem('userData', JSON.stringify(userData)); const toast = document.getElementById('toast-message'); toast.textContent = `Journal saved!`; toast.className = 'toast show'; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 2000); renderCalendar(); playSound('success'); }
             function updateSliderUI(container, percent) { const fill = container.querySelector('.slider-fill'); const handle = container.querySelector('.slider-handle'); const p = Math.max(0, Math.min(1, percent)); fill.style.width = `${p * 100}%`; handle.style.left = `${p * 100}%`; }
 
+            // =========================================================================
+            // === START OF MODIFIED DIAGNOSTICS/REPORTS CODE ==========================
+            // =========================================================================
             function runDiagnostics() {
-                document.getElementById('report-date-subtitle').textContent = `Generated on ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+                const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                document.getElementById('report-date-subtitle').textContent = `Generated on ${reportDate}`;
+                
+                // Set printable header info
+                document.getElementById('print-patient-name').textContent = localStorage.getItem('userName') || 'Not Set';
+                document.getElementById('print-report-date').textContent = reportDate;
+                
                 const results = []; let totalScore = 0;
                 const addResult = (test, value, unit, good, mod, inverted = false) => { let sev; if (value === undefined) return; if ((!inverted && value <= good) || (inverted && value >= good)) { sev = 'Good'; } else if ((!inverted && value <= mod) || (inverted && value >= mod)) { sev = 'Moderate'; totalScore++; } else { sev = 'Concerning'; totalScore += 2; } results.push({ test, value: `${value} ${unit}`, sev }); };
                 addResult('Tapping (Left)', testResultsToday.tappingLeft, 'taps', 100, 40, true);
@@ -1350,10 +1316,23 @@
                 if (results.length > 0) {
                     tableBody.innerHTML = results.map(r => `<tr class="severity-${r.sev}"><td>${r.test}</td><td>${r.value}</td><td>${r.sev}</td></tr>`).join('');
                     document.getElementById('analysis-section').style.display = 'block';
-                    let reportText;
-                    if (totalScore === 0) { reportText = "<strong>Excellent work.</strong><br>All test results fall within the typical range. Continue with regular monitoring to track your progress."; }
-                    else if (totalScore <= 4) { reportText = "<strong>Some observations noted.</strong><br>A few tests showed results slightly outside the typical range. It's recommended to continue monitoring these specific areas and discuss any consistent patterns with your healthcare provider."; }
-                    else { reportText = "<strong>Several areas for review.</strong><br>A number of tests showed results in a concerning range. This data provides a valuable starting point for a conversation with a neurologist. Consider sharing or printing this summary for your next appointment."; }
+                    
+                    let riskLevel, analysisTitle, reportText;
+                    if (totalScore === 0) {
+                        riskLevel = "Low Risk";
+                        analysisTitle = "Analysis & Next Steps";
+                        reportText = "All test results fall within the typical range. Continue with regular monitoring to track your progress.";
+                    } else if (totalScore <= 4) {
+                        riskLevel = "Moderate Risk";
+                        analysisTitle = `Analysis & Next Steps (⚠️ ${riskLevel})`;
+                        reportText = "A few tests showed results slightly outside the typical range. It's recommended to continue monitoring these specific areas and discuss any consistent patterns with your healthcare provider.";
+                    } else {
+                        riskLevel = "High Risk";
+                        analysisTitle = `Analysis & Next Steps (‼️ ${riskLevel})`;
+                        reportText = "A number of tests showed results in a concerning range. This data provides a valuable starting point for a conversation with a neurologist. Consider sharing or printing this summary for your next appointment.";
+                    }
+                    
+                    document.getElementById('analysis-title').innerHTML = `<strong>${analysisTitle}</strong>`;
                     document.getElementById('analysis-text').innerHTML = reportText;
                 } else {
                     tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--text-secondary);">No test data for today. Complete tests to see results.</td></tr>`;
@@ -1363,6 +1342,9 @@
                 if (tappingChartInstance) tappingChartInstance.destroy();
                 tappingChartInstance = new Chart(document.getElementById('tappingChart'), { type: 'line', data: { labels: ['W1', 'W2', 'W3', 'W4', 'Today'], datasets: [{ label: 'Taps (Dominant Hand)', data: [55, 58, 52, 60, Math.max(testResultsToday.tappingLeft || 0, testResultsToday.tappingRight || 0)], borderColor: 'var(--primary-blue)', tension: 0.1, backgroundColor: 'rgba(43, 99, 217, 0.1)', fill: true }] }, options: { animation: { duration: 1000, easing: 'easeOutQuart' } } });
             }
+            // =========================================================================
+            // === END OF MODIFIED DIAGNOSTICS/REPORTS CODE ============================
+            // =========================================================================
 
             // --- INITIALIZATION ---
             function initializeEventListeners() {
@@ -1390,6 +1372,7 @@
                 document.querySelectorAll('.custom-slider-container').forEach(container => { let isDragging = false; const track = container.querySelector('.slider-track'); function handleMove(e) { const rect = track.getBoundingClientRect(); const clientX = e.clientX || e.touches[0].clientX; let percent = (clientX - rect.left) / rect.width; updateSliderUI(container, percent); } track.addEventListener('mousedown', e => { isDragging = true; handleMove(e); }); window.addEventListener('mouseup', () => isDragging = false); window.addEventListener('mousemove', e => { if (isDragging && e.target.closest('.custom-slider-container') === container) handleMove(e); }); track.addEventListener('touchstart', e => { isDragging = true; handleMove(e); }); window.addEventListener('touchend', () => isDragging = false); window.addEventListener('touchmove', e => { if (isDragging && e.target.closest('.custom-slider-container') === container) handleMove(e); }); });
                 document.querySelectorAll('.pill-btn').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
                 document.getElementById('calendar-grid').addEventListener('click', e => { if (e.target.classList.contains('day') && !e.target.classList.contains('other-month')) selectDay(parseInt(e.target.dataset.day)); });
+                document.getElementById('print-report-btn').addEventListener('click', () => window.print()); // Print button listener
                 window.addEventListener('mousemove', e => { cursorDot.style.left = `${e.clientX}px`; cursorDot.style.top = `${e.clientY}px`; });
                 document.querySelectorAll('button, a, .test-card, .day, .slider-track, .pill-btn, .theme-switch').forEach(el => { el.addEventListener('mouseenter', () => cursorDot.classList.add('active')); el.addEventListener('mouseleave', () => cursorDot.classList.remove('active')); });
                 document.querySelectorAll('button, a, .test-card, .day, .pill-btn, .theme-switch, .slider-handle').forEach(el => el.addEventListener('click', () => playSound('click')));
